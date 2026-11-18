@@ -726,6 +726,29 @@ function btnHit(m) {  // точка клика → кнопка?
 }
 
 /* ---------- экраны --------------------------------------------- */
+/* кнопка «начать сначала» в меню (с подтверждением) */
+const RST = { w: 220, h: 34 };
+function resetBtnRect() { return { x: (W - RST.w) / 2, y: H * 0.78, w: RST.w, h: RST.h }; }
+function drawResetButton() {
+  const r = resetBtnRect(), confirm = performance.now() - (state.resetAsk || 0) < 5000;
+  cx.fillStyle = "rgba(20,20,30,.85)"; rr(r.x, r.y, r.w, r.h, 10);
+  cx.strokeStyle = "#ff6b6f"; cx.lineWidth = 2;
+  cx.beginPath(); cx.roundRect(r.x, r.y, r.w, r.h, 10); cx.stroke();
+  cx.fillStyle = confirm ? "#ff6b6f" : "#a9a9b6"; cx.font = "700 15px system-ui";
+  cx.textAlign = "center"; cx.textBaseline = "middle";
+  cx.fillText(confirm ? "ТОЧНО? — нажми ещё раз" : "НАЧАТЬ СНАЧАЛА", W / 2, r.y + r.h / 2 + 1);
+}
+function resetClick(m) {
+  const r = resetBtnRect();
+  if (state.phase !== "menu") return false;
+  if (m.x < r.x || m.x > r.x + r.w || m.y < r.y || m.y > r.y + r.h) return false;
+  const confirm = performance.now() - (state.resetAsk || 0) < 5000;
+  if (!confirm) { state.resetAsk = performance.now(); return true; }
+  save = { cash: 0, owned: ["sport"], car: "sport", level: 1 }; storeSave();
+  resetRun(); state.phase = "menu"; state.resetAsk = 0; Sfx.wasted();
+  return true;
+}
+
 /* масштаб панелей/шрифтов: мобильный — компактнее */
 let UI_SC = 1;
 function uiScale() { UI_SC = Math.max(0.5, Math.min(1, Math.min(W / 760, H / 620))); }
@@ -773,9 +796,11 @@ function drawOverlays() {
       cx.drawImage(im, (W - im.naturalWidth * s) / 2, H * 0.12, im.naturalWidth * s, im.naturalHeight * s);
     }
     centered("← → руль · M звук · P пауза", H * 0.52, "500 22px system-ui");
-  centered("Левые полосы — встречка!", H * 0.57, "500 18px system-ui", "#8f8f9f");
+  centered("Левые полосы — встречка!", H * 0.55, "500 17px system-ui", "#8f8f9f");
+  centered("Кнопка «Начать сначала» сбрасывает прогресс", H * 0.595, "400 13px system-ui", "#5f5f6d");
     centered("ПРОБЕЛ — СТАРТ УРОВНЯ " + save.level, H * 0.64, "900 30px system-ui", "#f5c542");
-    centered("Деньги: $" + Math.floor(save.cash) + " · Машин: " + save.owned.length + " · Уровень " + save.level, H * 0.72, "600 17px system-ui", "#8f8f9f");
+    centered("Деньги: $" + Math.floor(save.cash) + " · Машин: " + save.owned.length + " · Уровень " + save.level, H * 0.70, "600 17px system-ui", "#8f8f9f");
+  drawResetButton();
   }
   if (state.phase === "over") {
     panel(700, 320);
@@ -895,8 +920,10 @@ cv.addEventListener("touchstart", e => {
   lastTouchT = performance.now();
   Sfx.boot();
   const tch = e.touches[0], x = tch.clientX - cv.getBoundingClientRect().left;
-  if (btnHit({ x, y: tch.clientY - cv.getBoundingClientRect().top })) return;  // кнопки — свои
-  if (shopClick({ x, y: tch.clientY - cv.getBoundingClientRect().top })) return;
+  const tt = { x, y: tch.clientY - cv.getBoundingClientRect().top };
+  if (btnHit(tt)) return;  // кнопки — свои
+  if (resetClick(tt)) return;
+  if (shopClick(tt)) return;
   advance();
   if (state.phase === "run" && !state.paused) {
     const nearPocket = state.club && state.club.y < state.y + state.club.h * 0.35 && state.club.y > state.y - state.club.h * 0.8;
@@ -912,6 +939,7 @@ cv.addEventListener("click", e => {
   const b = btnHit(m);
   if (b === "snd") { Sfx.toggleMute(); return; }
   if (b === "pause") { togglePause(); return; }
+  if (resetClick(m)) return;
   if (shopClick(m)) return;
   advance();
 });
