@@ -462,7 +462,9 @@ function draw() {
   if (state.shake > 0) cx.translate((Math.random() - 0.5) * state.shake * 12, (Math.random() - 0.5) * state.shake * 12);
   drawRoad(); drawDeco(); drawGarageBack();
   drawMoney();
-  for (const c of state.cars) drawSprite(CAR_IMG[c.img], laneX(c.lane), c.y, c.w, c.l, true);
+  // ориентация: кто быстрее дороги — встречный (носом к игроку),
+  // кто медленнее — попутный (носом вверх, как игрок)
+  for (const c of state.cars) drawSprite(CAR_IMG[c.img], laneX(c.lane), c.y, c.w, c.l, (c.spd ?? 1) > 1);
   // игрок: подскок при ударе + мигание при неуязвимости
   const bounceY = Math.sin(state.bounce * Math.PI * 4) * state.bounce * 10;
   if (!(state.inv > 0 && Math.floor(performance.now() / 90) % 2))
