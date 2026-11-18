@@ -18,7 +18,13 @@
 </style>
 </head>
 <body>
-<iframe src="play.html" title="Vibe Racer 2" allow="fullscreen; autoplay"></iframe>
+<iframe id="gamefr" src="play.html" title="Vibe Racer 2" allow="fullscreen; autoplay"></iframe>
+<script>
+// клавиатура должна идти в игру: iframe ловит фокус после загрузки и кликов
+const fr = document.getElementById("gamefr");
+fr.addEventListener("load", () => fr.contentWindow.focus());
+document.addEventListener("click", () => fr.contentWindow.focus());
+</script>
 <div id="bar">
   <a href="howto.html">Как сделано</a>
   <span class="sub">Игра: Лаврухин Анатолий · ТГ @ALavr0</span>
