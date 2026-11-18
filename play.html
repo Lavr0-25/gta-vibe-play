@@ -82,10 +82,11 @@ function levelCfg(n) {   // уровень N: длина, трафик, стар
 }
 /* Магазин машин: цены/характеристики (id = ключ спрайта CAR_IMG) */
 const CARS = {
-  sport:  { name: "Спорткар (стартовый)", price: 0,    hp: 100, speed: 16 },
-  sedan:  { name: "Городской седан",      price: 200,  hp: 140, speed: 17 },
-  pickup: { name: "Пикап-внедорожник",    price: 600,  hp: 190, speed: 18 },
-  cop:    { name: "Болид полиции",        price: 1500, hp: 240, speed: 21 },
+  sport:  { name: "Спорткар (стартовый)", price: 0,     hp: 100, speed: 16, w: 82, l: 150 },
+  sedan:  { name: "Городской седан",      price: 200,   hp: 140, speed: 17, w: 80, l: 145 },
+  pickup: { name: "Пикап-внедорожник",    price: 600,   hp: 190, speed: 18, w: 82, l: 152 },
+  cop:    { name: "Болид полиции",        price: 1500,  hp: 240, speed: 21, w: 80, l: 155 },
+  tank:   { name: "Танк",                 price: 10000, hp: 600, speed: 14, w: 96, l: 185 },
 };
 const TRAFFIC = [   // dir: 1 — попутные (правые полосы), -1 — встречка (левые)
   //                spd — скорость как доля скорости дороги (встречные >1, попутные <1)
@@ -127,7 +128,7 @@ function resetRun() {
 }
 function fit() {
   W = cv.width = innerWidth; H = cv.height = innerHeight;
-  laneWcur = Math.max(56, Math.min(110, W / (CFG.lanes + 0.8)));  // телефоны: дорога в ширину экрана
+  laneWcur = Math.max(66, Math.min(110, W / (CFG.lanes + 1.7)));  // телефоны: дорога уже, обочины видны
   if (state) state.y = H - Math.max(130, Math.round(H * 0.22));   // ниже = больше дороги спереди
 }
 const cv = document.getElementById("game");
@@ -484,8 +485,9 @@ function update() {
   for (const c of state.cars) {
     if (state.inv > 0) break;
     const cxp = laneX(c.lane);
-    const hitX = Math.abs(px - cxp) < (80 + c.w) / 2 - 12;
-    const hitY = Math.abs(state.y - c.y) < (150 + c.l) / 2 - 12;
+    const PC = CARS[save.car];
+    const hitX = Math.abs(px - cxp) < (PC.w + c.w) / 2 - 12;
+    const hitY = Math.abs(state.y - c.y) < (PC.l + c.l) / 2 - 12;
     if (!hitX || !hitY) continue;
     resolveCrash(c);
     break;
@@ -546,7 +548,7 @@ function draw() {
   // игрок: подскок при ударе + мигание при неуязвимости
   const bounceY = Math.sin(state.bounce * Math.PI * 4) * state.bounce * 10;
   if (!(state.inv > 0 && Math.floor(performance.now() / 90) % 2))
-    drawSprite(CAR_IMG[save.car], laneX(state.lane), state.y + bounceY, 82, 155, false);
+    drawSprite(CAR_IMG[save.car], laneX(state.lane), state.y + bounceY, CARS[save.car].w, CARS[save.car].l, false);
   drawBridges(); drawSmoke(); drawPops();
   cx.restore();
   if (state.phase === "run" || state.phase === "garage") drawHUD();
@@ -786,8 +788,12 @@ function fmtTime() {
 }
 /* магазин машин: карточки, клик/клавиши 1..4 (одна геометрия для рисунка и кликов) */
 function shopGeom() {
-  const cw = Math.min(210, (W - 100) / 4);
-  return { cw, ch: 250, y0: H * 0.3, x0: (W - cw * 4.2) / 2, ids: ["sedan", "pickup", "cop", "sport"] };
+  const ids = ["sport", "sedan", "pickup", "cop", "tank"];
+  const cols = W < 620 ? 2 : Math.min(5, Math.max(2, Math.floor(W / 250)));
+  const cw = Math.min(190, (W - 40 - 16 * (cols - 1)) / cols);
+  const ch = W < 620 ? 178 : 240;
+  return { cw, ch, y0: W < 620 ? H * 0.20 : H * 0.28, x0: (W - (cw + 16) * cols + 16) / 2, ids,
+           cols, gapy: W < 620 ? 10 : 16, small: W < 620 };
 }
 function drawShop() {
   const g = shopGeom();
@@ -795,27 +801,30 @@ function drawShop() {
   centered("МАГАЗИН МАШИН", H * 0.12, "900 46px system-ui", "#f0a835");
   centered("Деньги: $" + Math.floor(save.cash) + " · клавиши 1–4 или клик · ПРОБЕЛ — УРОВЕНЬ " + (save.level + 1), H * 0.2, "600 22px system-ui", "#8f8f9f");
   g.ids.forEach((id, i) => {
-    const c = CARS[id], x = g.x0 + i * g.cw * 1.05;
+    const c = CARS[id];
+    const x = g.x0 + (i % g.cols) * (g.cw + 16);
+    const cy = g.y0 + Math.floor(i / g.cols) * (g.ch + g.gapy);
     const owned = save.owned.includes(id), active = save.car === id;
-    cx.fillStyle = active ? "#2b3a52" : "rgba(26,26,38,.95)"; rr(x, g.y0, g.cw, g.ch, 14);
+    cx.fillStyle = active ? "#2b3a52" : "rgba(26,26,38,.95)"; rr(x, cy, g.cw, g.ch, 14);
     cx.strokeStyle = active ? "#f5c542" : owned ? "#3fae7a" : "#2c2c3a"; cx.lineWidth = 3;
-    cx.beginPath(); cx.roundRect(x, g.y0, g.cw, g.ch, 14); cx.stroke();
+    cx.beginPath(); cx.roundRect(x, cy, g.cw, g.ch, 14); cx.stroke();
     const im = CAR_IMG[id];
     if (im && im.complete) {
-      const s = Math.min((g.cw - 24) / im.naturalWidth, 110 / im.naturalHeight);
-      cx.drawImage(im, x + (g.cw - im.naturalWidth * s) / 2, g.y0 + 14, im.naturalWidth * s, im.naturalHeight * s);
+      const s = Math.min((g.cw - 24) / im.naturalWidth, (g.small ? 62 : 108) / im.naturalHeight);
+      cx.drawImage(im, x + (g.cw - im.naturalWidth * s) / 2, cy + 8, im.naturalWidth * s, im.naturalHeight * s);
     }
     cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillStyle = "#ececf2"; cx.font = "700 16px system-ui";
-    cx.fillText(c.name.toUpperCase(), x + g.cw / 2, g.y0 + 132);
-    cx.fillText("Скорость " + c.speed + " · Броня " + c.hp, x + g.cw / 2, g.y0 + 156);
-    cx.font = "700 16px system-ui";
-    if (active) { cx.fillStyle = "#f5c542"; cx.fillText("ВЫБРАНА", x + g.cw / 2, g.y0 + 196); }
-    else if (owned) { cx.fillStyle = "#3fae7a"; cx.fillText("В ГАРАЖЕ", x + g.cw / 2, g.y0 + 192);
-      cx.fillText("(клик — выбрать)", x + g.cw / 2, g.y0 + 212); }
-    else if (save.cash >= c.price) { cx.fillStyle = "#7fe6a0"; cx.fillText("КУПИТЬ $" + c.price, x + g.cw / 2, g.y0 + 196); }
-    else { cx.fillStyle = "#8f8f9f"; cx.fillText("КУПИТЬ $" + c.price, x + g.cw / 2, g.y0 + 192);
-      cx.fillText("мало денег", x + g.cw / 2, g.y0 + 212); }
+    cx.fillStyle = "#ececf2"; cx.font = "700 " + (g.small ? 12 : 16) + "px system-ui";
+    cx.fillText(c.name.toUpperCase(), x + g.cw / 2, cy + (g.small ? 70 : 124));
+    if (!g.small) cx.fillText("Скорость " + c.speed + " · Броня " + c.hp, x + g.cw / 2, cy + 148);
+    cx.font = "700 " + (g.small ? 12 : 16) + "px system-ui";
+    const btnY = cy + (g.small ? 92 : 188);
+    if (active) { cx.fillStyle = "#f5c542"; cx.fillText("ВЫБРАНА", x + g.cw / 2, btnY); }
+    else if (owned) { cx.fillStyle = "#3fae7a"; cx.fillText("В ГАРАЖЕ", x + g.cw / 2, btnY);
+      if (!g.small) cx.fillText("(клик — выбрать)", x + g.cw / 2, btnY + 18); }
+    else if (save.cash >= c.price) { cx.fillStyle = "#7fe6a0"; cx.fillText("КУПИТЬ $" + c.price, x + g.cw / 2, btnY); }
+    else { cx.fillStyle = "#8f8f9f"; cx.fillText("КУПИТЬ $" + c.price, x + g.cw / 2, btnY);
+      if (!g.small) cx.fillText("мало денег", x + g.cw / 2, btnY + 18); }
   });
   centered("ПРОБЕЛ — СЛЕДУЮЩИЙ УРОВЕНЬ", H - 60, "900 28px system-ui", "#f5c542");
 }
@@ -824,8 +833,9 @@ function shopClick(m) {
   const g = shopGeom();
   let hit = null;
   g.ids.forEach((id, i) => {
-    const x = g.x0 + i * g.cw * 1.05;
-    if (m.x >= x && m.x <= x + g.cw && m.y >= g.y0 && m.y <= g.y0 + g.ch) hit = id;
+    const x = g.x0 + (i % g.cols) * (g.cw + 16);
+    const cy = g.y0 + Math.floor(i / g.cols) * (g.ch + g.gapy);
+    if (m.x >= x && m.x <= x + g.cw && m.y >= cy && m.y <= cy + g.ch) hit = id;
   });
   if (!hit) return false;
   applyShopCar(hit);
