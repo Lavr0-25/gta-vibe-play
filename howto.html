@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Как это сделано — GTA Vibe</title>
+<link rel="icon" href="logo.png">
+<style>
+  :root { --gold: #f0a835; --bg: #101018; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: #ececf2;
+    font: 17px/1.55 system-ui, sans-serif; }
+  body { padding: 32px 20px 56px; }
+  main { max-width: 860px; margin: 0 auto; }
+  .back { color: var(--gold); text-decoration: none; font-weight: 700; }
+  h1 { color: var(--gold); font-size: clamp(30px, 5vw, 52px); font-weight: 900;
+    letter-spacing: .03em; margin: 8px 0 4px; }
+  .tagline { color: #8f8f9f; margin-bottom: 30px; }
+  .card { background: #1a1a26; border: 1px solid #2c2c3a; border-radius: 14px;
+    padding: 18px 22px; margin: 22px 0; }
+  .card h2 { margin: 0 0 10px; font-size: 22px; color: #fff; }
+  ul { padding-left: 22px; margin: 8px 0; }
+  li { margin-bottom: 10px; }
+  li b { color: #fff; }
+  code { background: #26262f; border-radius: 6px; padding: 2px 8px;
+    font-size: 14px; color: #ffd489; }
+  .note { color: #8f8f9f; font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>КАК ЭТО СДЕЛАНО</h1>
+  <div class="tagline">Инструменты, на которых собрана игра «Vibe Racer 2» (и весь конкурс)</div>
+
+  <div class="card">
+    <h2>ИИ и кодинг</h2>
+    <ul>
+      <li><b>Claude Code (Claude, Anthropic)</b> — вся игра написана «вайбкодингом»:
+        постановка задач текстом по шагам, код пишет агент, проверка — руками в браузере.
+        Один HTML-файл целиком.</li>
+      <li><b>VS Code</b> — редактор, <b>Git + GitHub</b> — версионирование.</li>
+      <li><b>Playwright</b> — агент сам гоняет игру (старт, аварии, покупки) и ловит баги
+        перед показом.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Картинки и звук</h2>
+    <ul>
+      <li><b>GigaChat (Сбер)</b> — все спрайты: 6 машин с видом сверху, пальмы, здания, пруд,
+        эстакада, логотип. Сгенерировано, фон снят скриптом, вшито в файл как base64 —
+        игра работает без интернета.</li>
+      <li><b>Python + Pillow</b> — конвейер картинок: повороты «носом вверх», хромакей,
+        сборка логотипа с акцентом «GTA VI».</li>
+      <li><b>WebAudio (JavaScript)</b> — звук нарисован кодом, без аудио файлов:
+        мотор, сирена копов, хруст аварии, звон монет.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Сама игра (техника)</h2>
+    <ul>
+      <li><b>Canvas 2D</b> — дорога, асфальт с трещинами (бесшовный тайл), машины, частицы.</li>
+      <li><b>Один HTML-файл без внешних запросов</b> — можно скопировать и играть офлайн.</li>
+      <li><b>Спецификации</b> (<code>docs/specs/</code>) ведутся вместе с кодом: по ним проект
+        можно воссоздать с нуля.</li>
+    </ul>
+    <div class="note">Иллюстрации сгенерированы в GigaChat ·
+      <a href="https://proinfo.pro" target="_blank" rel="noopener noreferrer" style="color:#8f8f9f">Proinfo.pro</a></div>
+  </div>
+</main>
+<footer style="max-width:860px;margin:20px auto 0;color:#5f5f6d;font-size:13px">
+  <a href="https://t.me/ALavr0" target="_blank" rel="noopener noreferrer" style="color:#5f5f6d">Сделал Лаврухин Анатолий · ТГ @ALavr0</a>
+</footer>
+</body>
+</html>
