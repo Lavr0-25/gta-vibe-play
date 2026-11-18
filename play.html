@@ -616,7 +616,7 @@ function drawGarageFront() {   // двери гаража: съезжаются 
 /* миникарта уровня (в стиле GTA): овальная рамка, вертикальная «дорога»
    от старта до гаража, стрелка игрока ползёт по мере пройденных км */
 function drawMinimap() {
-  const ms = Math.max(0.58, Math.min(1, Math.min(W / 760, H / 620)));
+  const ms = Math.max(0.5, Math.min(1, Math.min(W / 760, H / 620)));
   const rx = 88 * ms, ry = 108 * ms, cx0 = rx + 22, cy0 = H - ry - 24;
   cx.save();
   // овальная рамка (тёмный корпус + золотая полоса), как в GTA
@@ -728,9 +728,9 @@ function btnHit(m) {  // точка клика → кнопка?
 /* ---------- экраны --------------------------------------------- */
 /* масштаб панелей/шрифтов: мобильный — компактнее */
 let UI_SC = 1;
-function uiScale() { UI_SC = Math.max(0.58, Math.min(1, Math.min(W / 760, H / 620))); }
+function uiScale() { UI_SC = Math.max(0.5, Math.min(1, Math.min(W / 760, H / 620))); }
 function panel(w, h) {
-  w = Math.round(w * UI_SC); h = Math.round(h * UI_SC);
+  w = Math.min(Math.round(w * UI_SC), W - 20); h = Math.round(h * UI_SC);
   cx.fillStyle = "rgba(10,10,16,.86)"; cx.fillRect(0, 0, W, H);
   cx.fillStyle = "rgba(26,26,38,.95)"; rr((W - w) / 2, (H - h) / 2, w, h, 18);
   cx.strokeStyle = "#f0a835"; cx.lineWidth = 2; cx.beginPath(); cx.roundRect((W - w) / 2, (H - h) / 2, w, h, 18); cx.stroke();
