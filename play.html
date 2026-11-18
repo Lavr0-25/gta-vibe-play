@@ -533,7 +533,43 @@ function drawGarageFront() {   // двери гаража: съезжаются 
   cx.beginPath(); cx.arc(W / 2, gy - 60, 26, 0, 7); cx.fill();               // лампа
   cx.restore();
 }
+/* миникарта уровня (в стиле GTA): овальная рамка, вертикальная «дорога»
+   от старта до гаража, стрелка игрока ползёт по мере пройденных км */
+function drawMinimap() {
+  const rx = 88, ry = 108, cx0 = rx + 22, cy0 = H - ry - 24;
+  cx.save();
+  // овальная рамка (тёмный корпус + золотая полоса), как в GTA
+  cx.fillStyle = "rgba(8,8,12,.9)";
+  cx.beginPath(); cx.ellipse(cx0, cy0, rx + 10, ry + 8, 0, 0, 7); cx.fill();
+  cx.strokeStyle = "#f0a835"; cx.lineWidth = 5;
+  cx.beginPath(); cx.ellipse(cx0, cy0, rx + 10, ry + 8, 0, 0, 7); cx.stroke();
+  // «дорога» внутри: тёмная полоса вдоль всего овала
+  cx.save();
+  cx.beginPath(); cx.ellipse(cx0, cy0, rx, ry, 0, 0, 7); cx.clip();
+  cx.fillStyle = "#33333d"; cx.fillRect(cx0 - 17, cy0 - ry, 34, ry * 2);
+  cx.fillStyle = "#f5f2e0";
+  for (let y = cy0 - ry + 6; y < cy0 + ry - 4; y += 22) cx.fillRect(cx0 - 2, y, 4, 12);
+  // точка «старт» вверху и гараж-плитка внизу дорожки
+  cx.fillStyle = "#9fd27f"; cx.beginPath(); cx.arc(cx0, cy0 - ry + 14, 6, 0, 7); cx.fill();
+  cx.fillStyle = "#e07b28"; rr(cx0 - 13, cy0 + ry - 26, 26, 20, 5);
+  cx.fillStyle = "#14141c"; cx.font = "900 15px system-ui";
+  cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("G", cx0, cy0 + ry - 16);
+  // стрелка игрока: движется от старта (сверху) к гаражу (снизу)
+  const prog = Math.min(1, state.score / CFG.kmFactor / state.targetKm);
+  const py = cy0 - ry + 22 + prog * (ry * 2 - 46);
+  cx.fillStyle = "#f5c542";
+  cx.beginPath(); cx.moveTo(cx0, py - 12); cx.lineTo(cx0 - 9, py + 9); cx.lineTo(cx0 + 9, py + 9);
+  cx.closePath(); cx.fill();
+  cx.strokeStyle = "#000"; cx.lineWidth = 2; cx.stroke();
+  cx.restore();
+  // подписи-«метки» по краям: N-старт, G-гараж
+  cx.fillStyle = "#3f7fe5"; rr(cx0 - rx - 6, cy0 - ry - 22, 26, 22, 7);
+  cx.fillStyle = "#fff"; cx.font = "900 15px system-ui";
+  cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("~", cx0 - rx + 7, cy0 - ry - 11);
+  cx.restore();
+}
 function drawHUD() {
+  drawMinimap();
   // GTA-худ правый верхний угол: значок, таймер, здоровье, деньги, звёзды
   const pad = 16, box = 58, t = Math.floor((state.timeDone !== undefined ? state.timeDone : (performance.now() - state.t0 - 1600)) / 1000);
   const x1 = W - pad;
