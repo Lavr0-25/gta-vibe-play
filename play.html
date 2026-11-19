@@ -77,8 +77,9 @@ let laneWcur = 110;
 function levelCfg(n) {   // уровень N: длина, трафик, старт-скорость
   return {
     km: 10 + (n - 1) * 5,
-    spawn: Math.max(14, CFG.spawnEvery - (n - 1) * 2),
-    speedStart: 6 + Math.min(5, (n - 1) * 0.6),
+    spawn: Math.max(14, 40 - (n - 1) * 7),              // lvl1: трафик редкий, дальше плотнее
+    speedStart: Math.min(6, 4.5 + (n - 1) * 0.5),       // lvl1: медленный разгон мира
+    dirBoost: Math.min(1, 0.55 + (n - 1) * 0.15),       // встречка на ранних — медленнее
   };
 }
 /* Магазин машин: цены/характеристики (id = ключ спрайта CAR_IMG) */
@@ -430,7 +431,7 @@ function update() {
   for (const c of state.cars) {
     if (c.stumble > 0) c.stumble -= 1 / 60;
     const bump = c.stumble > 0 ? 1.5 : 1;
-    let dy = state.speed * (c.spd ?? 1) * bump;
+    let dy = state.speed * (c.spd ?? 1) * bump * (c.dir === -1 ? (state.dirBoost || 1) : 1);
     if (c.cop && wanted && state.lane > c.lane) c.lane += 0.02;
     if (c.cop && wanted && state.lane < c.lane) c.lane -= 0.02;
     // чужая машина впеди (для копа и попутных) — притормозить, не проезжать насквозь
@@ -521,10 +522,10 @@ function resolveCrash(c) {
   const cl = Math.min(CFG.lanes - 1, Math.max(0, c.lane - dir));
   state.lane = pl; c.lane = cl;
   c.stumble = 1.1; if (c.cop) c.speedAdd = Math.max(2, c.speedAdd - 1);
-  const dmg = (c.img === "cop" ? 30 : 20) + Math.random() * 12;
+  const dmg = (c.img === "cop" ? 22 : 14) + Math.random() * 8;
   state.hp = Math.max(0, state.hp - dmg);
   state.stars = Math.min(5, state.stars + 1);
-  state.inv = 0.7; state.bounce = 1; state.shake = 0.6; state.speed = Math.max(4, state.speed - 2);
+  state.inv = 0.9; state.bounce = 1; state.shake = 0.6; state.speed = Math.max(4, state.speed - 2);
   for (let i = 0; i < 12; i++)
     state.smoke.push({ x: laneX(state.lane) + (Math.random() - 0.5) * 70, y: state.y - 30 - Math.random() * 40, r: 8 + Math.random() * 16, a: 0.8 });
   Sfx.crash();
