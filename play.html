@@ -1018,11 +1018,13 @@ cv.addEventListener("touchend", e => {
   if (state.phase === "run" && !state.paused) {
     if (Math.abs(dy) >= 36 && Math.abs(dy) > Math.abs(dx)) {   // свайп: вперёд/назад
       state.yT += (dy < 0 ? -1 : 1) * H * 0.16;
-    } else {                                                   // тап: полоса / карман по краю
-      const roadL = (W - CFG.lanes * laneWcur) / 2, roadR = W - roadL;
-      if (touchS.x < roadL - 6) state.lane = -1;
-      else if (touchS.x > roadR + 6) state.lane = CFG.lanes;
-      else state.lane = Math.max(-1, Math.min(CFG.lanes, state.lane + (touchS.x > W / 2 ? 1 : -1)));
+    } else {   // тап: ЕДЕМ в ближайшую к точке тапа полосу (карманы −1 и CFG.lanes тоже)
+      let best = state.lane, bd = 1e9;
+      for (let l = -1; l <= CFG.lanes; l++) {
+        const d = Math.abs(touchS.x - laneX(l));
+        if (d < bd) { bd = d; best = l; }
+      }
+      state.lane = best;
     }
   }
   touchS = null;
