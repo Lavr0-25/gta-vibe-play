@@ -124,6 +124,7 @@ function resetRun() {
     cars: [], cops: [], pickups: [], pops: [], smoke: [],
     deco: [], bridges: [],
     nextDeco: 10, nextCity: 5, nextBridge: 70, nextClub: 25,
+    dudesNext: 18, dudesSide: 0,      // люди на кармане-обочине: когда и с какой стороны
     club: null, dummies: [],
     scrollY: 0, bounce: 0, shake: 0, inv: 0,
     t0: performance.now(), intro: 1.6, garage: 0, res: 0, paused: false,
@@ -131,13 +132,14 @@ function resetRun() {
     speedMax: Math.min(isMobile ? 14 : 99, CFG.speedMaxBase + (car.speed - CARS.sport.speed) * 0.5),
   };
   state.y = H - 140;
+  state.yT = state.y;     // цель вертикального движения (вперёд/назад)
 }
 function fit() {
   W = cv.width = innerWidth; H = cv.height = innerHeight;
   laneWcur = Math.max(40, Math.min(110, W / (CFG.lanes + 3)));    // телефоны: дорога уже + широкие обочины (пальмы/город)
   isMobile = laneWcur < 85;                                       // узкий экран — мобильное облегчение трафика
   carSC = Math.max(0.5, Math.min(1, laneWcur / 110));             // машины масштабируются под полосу — фикс коллизий соседних полос
-  if (state) state.y = H - Math.max(130, Math.round(H * 0.22));   // ниже = больше дороги спереди
+  if (state) state.y = state.yT = H - Math.max(130, Math.round(H * 0.22));  // ниже = больше дороги спереди
 }
 const cv = document.getElementById("game");
 const cx = cv.getContext("2d");
@@ -322,6 +324,16 @@ function updateDeco() {   // прирост мира и спавн декора
     state.nextBridge = Math.floor(state.score) + 100 + Math.random() * 60;
     state.bridges.push({ y: -140, cars: makeBridgeCars() });
   }
+  // люди на кармане-обочине: раз в ~25 миль, 1–3 за раз на случайной стороне
+  if (Math.floor(state.score) >= state.dudesNext) {
+    state.dudesNext = Math.floor(state.score) + 22 + Math.random() * 14;
+    state.dudesSide = Math.random() < 0.5 ? -1 : CFG.lanes;
+    const lx = laneX(state.dudesSide), n = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++)
+      state.dummies.push({ x: lx + (Math.random() - 0.5) * laneWcur * 0.5,
+                           y: -70 - i * 70 - Math.random() * 60, pocket: true,
+                           lying: false, vx: 0, vy: 0, rot: 0, spin: 0 });
+  }
   // ночной клуб с парковкой: раз в ~45 миль, с карманом-съездом
   if (!state.club && Math.floor(state.score) >= state.nextClub) {
     state.nextClub = Math.floor(state.score) + 45 + Math.random() * 30;
@@ -349,7 +361,7 @@ function updateDeco() {   // прирост мира и спавн декора
     if (m.lying) {                                   // лежит: инерция разлёта
       m.x += m.vx; m.y += m.vy; m.vx *= 0.95; m.vy *= 0.94; m.rot += m.spin;
       m.spin *= 0.96;
-    } else if (state.club === null) break;
+    }
   }
   state.dummies = state.dummies.filter(m => m.y < H + 160 && m.y > -600);
   for (const d of state.deco) d.y += state.speed;
@@ -378,7 +390,7 @@ function drawClub() {   // клуб рисуется до машин — как 
 function drawDummies() {
   const im = DECO_IMG.dummy; if (!im || !im.complete || !im.naturalWidth) return;
   for (const m of state.dummies) {
-    const dw = im.naturalWidth * 0.16, dh = im.naturalHeight * 0.16;
+    const dw = im.naturalWidth * 0.16 * carSC, dh = im.naturalHeight * 0.16 * carSC;
     cx.save(); cx.translate(m.x, m.y); cx.rotate(m.rot);
     cx.globalAlpha = m.lying ? 0.95 : 1;
     cx.shadowColor = "rgba(0,0,0,.5)"; cx.shadowBlur = 8; cx.shadowOffsetY = 5;
@@ -484,15 +496,26 @@ function update() {
       save.cash += 25; storeSave(); Sfx.coin();
       state.pops.push({ x: pocketX, y: state.y - 70, txt: "VIP +$25", a: 1.3 });
     }
-    for (const m of state.dummies) {
-      if (m.lying) continue;
-      if (Math.abs(m.x - laneX(state.lane)) < 46 && Math.abs(m.y - state.y) < 105) {
-        m.lying = true;
-        m.vx = (m.x - laneX(state.lane)) * 0.3 + (Math.random() - 0.5) * 10;
-        m.vy = 9 + Math.random() * 7; m.spin = (Math.random() - 0.5) * 0.5;
-        Sfx.boing();
-      }
+  }
+  // люди на кармане: сбил — отлетает, +$10 и звезда розыска (риск копов)
+  for (const m of state.dummies) {
+    if (m.lying || !m.pocket) continue;
+    const rr = Math.max(30, 46 * carSC), ry = Math.max(60, 105 * carSC);
+    if (Math.abs(m.x - laneX(state.lane)) < rr && Math.abs(m.y - state.y) < ry) {
+      m.lying = true;
+      m.vx = (m.x - laneX(state.lane)) * 0.3 + (Math.random() - 0.5) * 10;
+      m.vy = 9 + Math.random() * 7; m.spin = (Math.random() - 0.5) * 0.5;
+      save.cash += 10; state.cashRun += 10; storeSave();
+      state.stars = Math.min(5, state.stars + 1);
+      Sfx.boing();
+      state.pops.push({ x: m.x, y: m.y - 60, txt: "+$10 ★", a: 1.3 });
     }
+  }
+  // вертикальное движение (вперёд/назад): плавно едем к цели yT
+  {
+    const yMin = H * 0.4, yMax = H - Math.max(120, H * 0.16);
+    state.yT = Math.max(yMin, Math.min(yMax, state.yT));
+    state.y += Math.max(-2.6, Math.min(2.6, (state.yT - state.y) * 0.14));
   }
   // столкновения: отскок, полоски в стороны, дым, звезда, здоровье
   state.inv = Math.max(0, state.inv - 1 / 60);
@@ -581,6 +604,14 @@ function drawRoad() {
   cx.restore();
   cx.fillStyle = "#55555f";
   cx.fillRect(roadL - 14, 0, 14, H); cx.fillRect(roadL + CFG.lanes * laneWcur, 0, 14, H);
+  // карманы-обочины по краям: асфальтовая полоса, куда можно съехать
+  if (roadL >= laneWcur * 0.7) {
+    cx.fillStyle = "#191920";
+    cx.fillRect(roadL - laneWcur, 0, laneWcur, H);
+    cx.fillRect(roadL + CFG.lanes * laneWcur, 0, laneWcur, H);
+    cx.fillStyle = "#3a3a44";                       // внутренние бортики
+    cx.fillRect(roadL - laneWcur, 0, 7, H); cx.fillRect(roadL + CFG.lanes * laneWcur + laneWcur - 7, 0, 7, H);
+  }
   cx.fillStyle = "#f5f2e0";
   for (let i = 1; i < CFG.lanes; i++)
     for (let y = (state.scrollY || 0) % 80; y < H; y += 80)
@@ -918,34 +949,52 @@ addEventListener("keydown", e => {
     if (state.phase === "shop" && /^Digit[1-4]$/.test(e.code)) applyShopKey(+e.code.slice(5));
     return;
   }
-  const pocketNear = state.club && state.club.y < state.y + state.club.h * 0.35
-                  && state.club.y > state.y - state.club.h * 0.8;   // карман пролетает мимо
-  const lo = pocketNear && state.club.side === "left" ? -1 : 0;
-  const hi = pocketNear && state.club.side === "right" ? CFG.lanes : CFG.lanes - 1;
-  if (e.code === "ArrowLeft" || e.code === "KeyA") state.lane = Math.max(lo, state.lane - 1);
-  if (e.code === "ArrowRight" || e.code === "KeyD") state.lane = Math.min(hi, state.lane + 1);
+  // карманы-обочины доступны всегда (у клуба pocketX переопределяется в laneX)
+  if (e.code === "ArrowLeft" || e.code === "KeyA") state.lane = Math.max(-1, state.lane - 1);
+  if (e.code === "ArrowRight" || e.code === "KeyD") state.lane = Math.min(CFG.lanes, state.lane + 1);
+  if (e.code === "ArrowUp" || e.code === "KeyW") state.yT -= H * 0.16;
+  if (e.code === "ArrowDown" || e.code === "KeyS") state.yT += H * 0.16;
 });
 function applyShopKey(n) {   // 1..4 в магазине
   const id = shopGeom().ids[n - 1]; if (!id) return;
   applyShopCar(id);
 }
-/* сенсорное управление (QR-игроки с телефонами): тап левой/правой части */
+/* сенсорное управление (QR-игроки с телефонами):
+   свайп вверх/вниз — движение вперёд/назад, тап — полоса (край экрана — карман-обочина) */
 let lastTouchT = -9999;   // тап и click дублируются на телефонах — глушим второй
+let touchS = null;        // точка старта свайпа
+let touchBtn = false;     // тап пришёлся на кнопку (lane-логику глушим)
+function pressBtn(key) {       // тап по кнопке: как click handler, но сразу
+  if (key === "snd") Sfx.toggleMute();
+  else if (key === "pause") togglePause();
+}
 cv.addEventListener("touchstart", e => {
   lastTouchT = performance.now();
   Sfx.boot();
-  const tch = e.touches[0], x = tch.clientX - cv.getBoundingClientRect().left;
-  const tt = { x, y: tch.clientY - cv.getBoundingClientRect().top };
-  if (btnHit(tt)) return;  // кнопки — свои
-  if (resetClick(tt)) return;
-  if (shopClick(tt)) return;
+  const tch = e.touches[0], rect = cv.getBoundingClientRect();
+  const tt = { x: tch.clientX - rect.left, y: tch.clientY - rect.top };
+  touchS = tt; touchBtn = false;
+  const b = btnHit(tt);                                  // кнопки — свои (тап глушит click-дубль)
+  if (b) { touchBtn = true; pressBtn(b); return; }
+  if (resetClick(tt)) { touchBtn = true; return; }
+  if (shopClick(tt)) { touchBtn = true; return; }
   advance();
+}, { passive: true });
+cv.addEventListener("touchend", e => {
+  if (!touchS || touchBtn) return;
+  const t = e.changedTouches[0], rect = cv.getBoundingClientRect();
+  const dx = (t.clientX - rect.left) - touchS.x, dy = (t.clientY - rect.top) - touchS.y;
   if (state.phase === "run" && !state.paused) {
-    const nearPocket = state.club && state.club.y < state.y + state.club.h * 0.35 && state.club.y > state.y - state.club.h * 0.8;
-    const lo0 = nearPocket && state.club.side === "left" ? -1 : 0;
-    const hi0 = nearPocket && state.club.side === "right" ? CFG.lanes : CFG.lanes - 1;
-    state.lane = Math.max(lo0, Math.min(hi0, state.lane + (x > W / 2 ? 1 : -1)));
+    if (Math.abs(dy) >= 36 && Math.abs(dy) > Math.abs(dx)) {   // свайп: вперёд/назад
+      state.yT += (dy < 0 ? -1 : 1) * H * 0.16;
+    } else {                                                   // тап: полоса / карман по краю
+      const roadL = (W - CFG.lanes * laneWcur) / 2, roadR = W - roadL;
+      if (touchS.x < roadL - 6) state.lane = -1;
+      else if (touchS.x > roadR + 6) state.lane = CFG.lanes;
+      else state.lane = Math.max(-1, Math.min(CFG.lanes, state.lane + (touchS.x > W / 2 ? 1 : -1)));
+    }
   }
+  touchS = null;
 }, { passive: true });
 cv.addEventListener("click", e => {
   if (performance.now() - lastTouchT < 600) return;   // это был тап — click пропускаем
