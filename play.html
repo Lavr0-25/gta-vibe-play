@@ -81,7 +81,7 @@ function levelCfg(n) {   // уровень N: длина, трафик, стар
   return {
     km: 10 + (n - 1) * 5,
     spawn: Math.max(14, (mob ? 90 : 40) - (n - 1) * 9),  // lvl1: трафик редкий (на телефоне ещё реже)
-    speedStart: Math.min(6, 4.5 + (n - 1) * 0.5),        // lvl1: медленный разгон мира
+    speedStart: Math.min(6, (mob ? 4 : 4.5) + (n - 1) * 0.5),   // lvl1: медленный разгон мира
     dirBoost: Math.min(1, (mob ? 0.28 : 0.55) + (n - 1) * 0.15),  // встречка на ранних — медленнее
   };
 }
@@ -127,7 +127,8 @@ function resetRun() {
     club: null, dummies: [],
     scrollY: 0, bounce: 0, shake: 0, inv: 0,
     t0: performance.now(), intro: 1.6, garage: 0, res: 0, paused: false,
-    targetKm: L.km, spawnEvery: L.spawn, speedMax: CFG.speedMaxBase + (car.speed - CARS.sport.speed) * 0.5,
+    targetKm: L.km, spawnEvery: L.spawn,
+    speedMax: Math.min(isMobile ? 14 : 99, CFG.speedMaxBase + (car.speed - CARS.sport.speed) * 0.5),
   };
   state.y = H - 140;
 }
@@ -408,7 +409,7 @@ function drawBridges() {
 function update() {
   const car = CARS[save.car];
   state.score += state.speed / 10;
-  state.speed = Math.min(state.speedMax, state.speed + CFG.speedGain);
+  state.speed = Math.min(state.speedMax, state.speed + CFG.speedGain * (isMobile ? 0.67 : 1));
   updateDeco();
 
   // деньги на дороге
@@ -436,7 +437,7 @@ function update() {
     let lane = wanted ? state.lane + (Math.random() < 0.5 ? -1 : 1) : 2 + Math.floor(Math.random() * 2);
     lane = Math.max(0, Math.min(CFG.lanes - 1, lane));
     if (!state.cars.some(c => c.lane === lane && c.y > -300))
-      state.cars.push({ kind: "cop", img: "cop", w: 80, l: 155, lane, y: -160, spd: 1 + (wanted ? 0.45 : 0.25), cop: true, stumble: 0 });
+      state.cars.push({ kind: "cop", img: "cop", w: 80, l: 155, lane, y: -160, spd: 1 + (wanted ? 0.45 : 0.25), dir: 1, cop: true, stumble: 0 });
   }
   // движение машин: копы при розыске рулят в полосу игрока и НЕ летят сквозь чужие
   for (const c of state.cars) {
@@ -558,7 +559,7 @@ function draw() {
   drawMoney();
   // ориентация: кто быстрее дороги — встречный (носом к игроку),
   // кто медленнее — попутный (носом вверх, как игрок)
-  for (const c of state.cars) drawSprite(CAR_IMG[c.img], laneX(c.lane), c.y, c.w * carSC, c.l * carSC, (c.spd ?? 1) > 1);
+  for (const c of state.cars) drawSprite(CAR_IMG[c.img], laneX(c.lane), c.y, c.w * carSC, c.l * carSC, c.dir === -1);
   // игрок: подскок при ударе + мигание при неуязвимости
   const bounceY = Math.sin(state.bounce * Math.PI * 4) * state.bounce * 10;
   if (!(state.inv > 0 && Math.floor(performance.now() / 90) % 2))
