@@ -523,15 +523,13 @@ function update() {
     state.yT = Math.max(yMin, Math.min(yMax, state.yT));
     state.y += Math.max(-2.6, Math.min(2.6, (state.yT - state.y) * 0.14));
   }
-  // джойстик: ось Y тянет цель вперёд/назад, ось X — шаги по полосам
-  // (держишь у края — идёт полоса за полосой с интервалом автоповтора)
-  if (stick.id !== null) {
-    state.yT += stick.dir.y * STK.ySpd;
-    if (stick.cd > 0) stick.cd -= 1 / 60;
-    if (Math.abs(stick.dir.x) >= STK.flip && stick.cd <= 0) {
-      const nl = state.lane + (stick.dir.x > 0 ? 1 : -1);
-      if (nl >= -1 && nl <= CFG.lanes) { state.lane = nl; stick.cd = STK.repeat; }
-    }
+  // стрелки ◀ ▶: удержание = полоса за полосой (интервал автоповтора;
+  // первый шаг уже сделан при нажатии)
+  if (arrows.id !== null && arrows.cd > 0) arrows.cd -= 1 / 60;
+  else if (arrows.id !== null) {
+    arrows.cd = ARW.repeat;
+    const nl = state.lane + (arrows.key === "r" ? 1 : -1);
+    if (nl >= -1 && nl <= CFG.lanes) state.lane = nl;
   }
   // столкновения: отскок, полоски в стороны, дым, звезда, здоровье
   state.inv = Math.max(0, state.inv - 1 / 60);
@@ -675,44 +673,7 @@ function drawGarageFront() {   // двери гаража: съезжаются 
   cx.beginPath(); cx.arc(W / 2, gy - 60, 26, 0, 7); cx.fill();               // лампа
   cx.restore();
 }
-/* миникарта уровня (в стиле GTA): овальная рамка, вертикальная «дорога»
-   от старта до гаража, стрелка игрока ползёт по мере пройденных км */
-function drawMinimap() {
-  const ms = Math.max(0.5, Math.min(1, Math.min(W / 760, H / 620)));
-  const rx = 88 * ms, ry = 108 * ms, cx0 = rx + 22, cy0 = H - ry - 24;
-  cx.save();
-  // овальная рамка (тёмный корпус + золотая полоса), как в GTA
-  cx.fillStyle = "rgba(8,8,12,.9)";
-  cx.beginPath(); cx.ellipse(cx0, cy0, rx + 10, ry + 8, 0, 0, 7); cx.fill();
-  cx.strokeStyle = "#f0a835"; cx.lineWidth = 5;
-  cx.beginPath(); cx.ellipse(cx0, cy0, rx + 10, ry + 8, 0, 0, 7); cx.stroke();
-  // «дорога» внутри: тёмная полоса вдоль всего овала
-  cx.save();
-  cx.beginPath(); cx.ellipse(cx0, cy0, rx, ry, 0, 0, 7); cx.clip();
-  cx.fillStyle = "#33333d"; cx.fillRect(cx0 - 17, cy0 - ry, 34, ry * 2);
-  cx.fillStyle = "#f5f2e0";
-  for (let y = cy0 - ry + 6; y < cy0 + ry - 4; y += 22) cx.fillRect(cx0 - 2, y, 4, 12);
-  // точка «старт» вверху и гараж-плитка внизу дорожки
-  cx.fillStyle = "#9fd27f"; cx.beginPath(); cx.arc(cx0, cy0 - ry + 14, 6, 0, 7); cx.fill();
-  cx.fillStyle = "#e07b28"; rr(cx0 - 13, cy0 + ry - 26, 26, 20, 5);
-  cx.fillStyle = "#14141c"; cx.font = "900 15px system-ui";
-  cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("G", cx0, cy0 + ry - 16);
-  // стрелка игрока: движется от старта (сверху) к гаражу (снизу)
-  const prog = Math.min(1, state.score / CFG.kmFactor / state.targetKm);
-  const py = cy0 - ry + 22 + prog * (ry * 2 - 46);
-  cx.fillStyle = "#f5c542";
-  cx.beginPath(); cx.moveTo(cx0, py - 12); cx.lineTo(cx0 - 9, py + 9); cx.lineTo(cx0 + 9, py + 9);
-  cx.closePath(); cx.fill();
-  cx.strokeStyle = "#000"; cx.lineWidth = 2; cx.stroke();
-  cx.restore();
-  // подписи-«метки» по краям: N-старт, G-гараж
-  cx.fillStyle = "#3f7fe5"; rr(cx0 - rx - 6, cy0 - ry - 22, 26, 22, 7);
-  cx.fillStyle = "#fff"; cx.font = "900 15px system-ui";
-  cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("~", cx0 - rx + 7, cy0 - ry - 11);
-  cx.restore();
-}
 function drawHUD() {
-  drawMinimap();
   // GTA-худ правый верхний угол: значок, таймер, здоровье, деньги, звёзды
   const k = tapUI ? 0.55 : 1;   // мобайл: HUD заметно компактнее (площадь в ~3 раза меньше)
   const pad = Math.round(16 * k), box = Math.round(58 * k),
@@ -779,23 +740,24 @@ function drawButtons() {
       else { cx.fillRect(cxp - 7, cyp - 8, 5, 16); cx.fillRect(cxp + 3, cyp - 8, 5, 16); }
     }
   }
-  drawStick();
+  drawArrows();
 }
-/* джойстик (телефон): постоянный полупрозрачный круг справа внизу,
-   ручка появляется при касании; в круге — только движение */
-function drawStick() {
+/* стрелки ◀ ▶ (телефон): две плитки справа внизу, подсветка при удержании */
+function drawArrows() {
   if (!TAP() || state.phase !== "run") return;
-  const s = stickPos();
-  cx.save();
-  cx.fillStyle = "rgba(255,255,255,.07)";
-  cx.beginPath(); cx.arc(s.x, s.y, STK.r, 0, 7); cx.fill();
-  cx.strokeStyle = "rgba(255,255,255,.35)"; cx.lineWidth = 2;
-  cx.beginPath(); cx.arc(s.x, s.y, STK.r, 0, 7); cx.stroke();
-  if (stick.id !== null) {              // ручка — только пока палец на круге
-    cx.fillStyle = "rgba(216,216,216,.55)";
-    cx.beginPath(); cx.arc(stick.knobX ?? s.x, stick.knobY ?? s.y, STK.knob, 0, 7); cx.fill();
+  const a = arrowPos();
+  for (const key of ["l", "r"]) {
+    const p = a[key], on = arrows.id !== null && arrows.key === key;
+    cx.fillStyle = on ? "rgba(240,168,53,.35)" : "rgba(255,255,255,.08)";
+    cx.beginPath(); cx.arc(p.x, p.y, ARW.r, 0, 7); cx.fill();
+    cx.strokeStyle = on ? "#f0a835" : "rgba(255,255,255,.4)"; cx.lineWidth = 2.5;
+    cx.beginPath(); cx.arc(p.x, p.y, ARW.r, 0, 7); cx.stroke();
+    cx.fillStyle = on ? "#f5c542" : "rgba(240,240,248,.8)";
+    cx.beginPath(); cx.moveTo(p.x + (key === "l" ? 10 : -10), p.y - 16);
+    cx.lineTo(p.x + (key === "l" ? -10 : 10), p.y);
+    cx.lineTo(p.x + (key === "l" ? 10 : -10), p.y + 16);
+    cx.closePath(); cx.fill();
   }
-  cx.restore();
 }
 function btnHit(m) {  // точка клика → кнопка?
   for (const key of ["snd", "pause"]) {
@@ -1082,15 +1044,22 @@ function pressBtn(key) {
   if (key === "snd") Sfx.toggleMute();
   else if (key === "pause") togglePause();
 }
-/* джойстик */
-const STK = { r: 58, knob: 26, dead: 8, flip: 0.5, repeat: 0.28, ySpd: 2.6 };
-const stick = { id: null, dir: { x: 0, y: 0 }, cd: 0 };
-function stickPos() { return { x: W - 34 - STK.r, y: H - 96 - STK.r }; }
-function inStick(p) {
-  const s = stickPos(), dx = p.x - s.x, dy = p.y - s.y;
-  return dx * dx + dy * dy <= (STK.r + 14) * (STK.r + 14);
+/* стрелки мобайл: ◀ ▶ справа внизу — тап = шаг полосы, удержание = полоса за полосой */
+const ARW = { r: 46, gap: 14, repeat: 0.28 };
+const arrows = { id: null, key: null, cd: 0 };
+function arrowPos() {
+  return { r: { x: W - 34 - ARW.r, y: H - 34 - ARW.r },
+           l: { x: W - 34 - ARW.r * 2 - ARW.gap - ARW.r - ARW.gap, y: H - 34 - ARW.r } };
 }
-let tapS = null;          // кандидат на тап/свайп (палец вне джойстика)
+function inArrow(p) {
+  const a = arrowPos();
+  for (const key of ["l", "r"]) {
+    const dx = p.x - a[key].x, dy = p.y - a[key].y;
+    if (dx * dx + dy * dy <= (ARW.r + 12) * (ARW.r + 12)) return key;
+  }
+  return null;
+}
+let tapS = null;          // кандидат на тап/свайп (палец вне стрелок)
 cv.addEventListener("pointerdown", e => {
   lastTouchT = performance.now();
   Sfx.boot();
@@ -1101,47 +1070,31 @@ cv.addEventListener("pointerdown", e => {
   if (resetClick(p)) return;
   if (shopClick(p)) return;
   if (pauseClick(p)) return;
-  if (TAP() && state.phase === "run" && !state.paused && inStick(p)) {
-    const s = stickPos();               // движение считается ОТ ЦЕНТРА круга
-    stick.id = e.pointerId;
-    stick.cd = 0;
-    stickMove(s.x, s.y, s.x, s.y);
-    return;
+  if (TAP() && state.phase === "run" && !state.paused) {
+    const hit = inArrow(p);
+    if (hit) {                              // шаг сразу при нажатии (кадр может не успеть)
+      arrows.id = e.pointerId; arrows.key = hit; arrows.cd = ARW.repeat;
+      const nl = state.lane + (hit === "r" ? 1 : -1);
+      if (nl >= -1 && nl <= CFG.lanes) state.lane = nl;
+      return;
+    }
   }
   if (state.phase !== "run" || state.paused) { advance(); return; }
   tapS = p;                             // ждём pointerup: свайп или тап
 });
-function stickMove(sx, sy, px, py) {
-  let dx = px - sx, dy = py - sy;
-  const dist = Math.hypot(dx, dy);
-  if (dist < STK.dead) { stick.dir.x = stick.dir.y = 0; return; }
-  const travel = Math.min(dist, STK.r - STK.knob);
-  dx = dx / dist * travel; dy = dy / dist * travel;
-  stick.dir.x = dx / (STK.r - STK.knob);
-  stick.dir.y = dy / (STK.r - STK.knob);
-  stick.knobX = sx + dx; stick.knobY = sy + dy;
+function arrowsRelease(e) {
+  if (e.pointerId !== arrows.id) return;
+  arrows.id = null; arrows.key = null; arrows.cd = 0;
 }
-function stickRelease(e) {
-  if (e.pointerId !== stick.id) return;
-  stick.id = null; stick.dir.x = stick.dir.y = 0;
-  stick.knobX = undefined;
-}
-cv.addEventListener("pointermove", e => {
-  if (e.pointerId !== stick.id) return;
-  const rect = cv.getBoundingClientRect();
-  const s = stickPos();
-  stickMove(s.x, s.y, e.clientX - rect.left, e.clientY - rect.top);
-});
-addEventListener("pointerup", e => {   // страховка от «залипшего» стика (урок pixel-raid)
-  stickRelease(e);
-});
+addEventListener("pointerup", arrowsRelease);        // страховка от «залипания»
+addEventListener("pointercancel", arrowsRelease);
 cv.addEventListener("pointerup", e => {
-  if (stick.id !== null) stickRelease(e);
+  arrowsRelease(e);
   if (tapS === null) return;
   const rect = cv.getBoundingClientRect();
   const dx = (e.clientX - rect.left) - tapS.x, dy = (e.clientY - rect.top) - tapS.y;
   tapS = null;
-  if (state.phase !== "run" || state.paused || stick.id !== null) return;
+  if (state.phase !== "run" || state.paused || arrows.id !== null) return;
   if (Math.abs(dy) >= 36 && Math.abs(dy) > Math.abs(dx)) {   // свайп: вперёд/назад
     state.yT += (dy < 0 ? -1 : 1) * H * 0.16;
     return;
@@ -1153,7 +1106,7 @@ cv.addEventListener("pointerup", e => {
   }
   state.lane = best;
 });
-addEventListener("pointercancel", e => { stickRelease(e); tapS = null; });
+addEventListener("pointercancel", e => { arrowsRelease(e); tapS = null; });
 function togglePause() {
   if (!["run", "intro", "garage"].includes(state.phase)) return;
   state.paused = !state.paused; Sfx.siren(false); Sfx.engine(false, 0);
