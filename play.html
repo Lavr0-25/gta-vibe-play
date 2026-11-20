@@ -876,10 +876,10 @@ function shopGeom() {
   const cols = W < 620 ? 2 : Math.min(5, Math.max(2, Math.floor(W / 250)));
   const small = W < 620;
   const cw = Math.min(190, (W - 40 - 16 * (cols - 1)) / cols);
-  const ch = small ? 136 : 240;
+  const ch = small ? 112 : 240;
   const y0 = small ? H * 0.20 : H * 0.28;
   return { cw, ch, y0, x0: (W - (cw + 16) * cols + 16) / 2, ids,
-           cols, gapy: small ? 18 : 16, small };
+           cols, gapy: small ? 16 : 16, small };
 }
 function drawShop() {
   const g = shopGeom();
@@ -898,23 +898,23 @@ function drawShop() {
     cx.beginPath(); cx.roundRect(x, cy, g.cw, g.ch, 14); cx.stroke();
     const im = CAR_IMG[id];
     if (im && im.complete) {
-      const s = Math.min((g.cw - 24) / im.naturalWidth, (g.small ? 52 : 108) / im.naturalHeight);
-      cx.drawImage(im, x + (g.cw - im.naturalWidth * s) / 2, cy + 8, im.naturalWidth * s, im.naturalHeight * s);
+      const s = Math.min((g.cw - 24) / im.naturalWidth, (g.small ? 40 : 108) / im.naturalHeight);
+      cx.drawImage(im, x + (g.cw - im.naturalWidth * s) / 2, cy + 6, im.naturalWidth * s, im.naturalHeight * s);
     }
     // мобайл: имя компактно + настоящая кнопка-плитка на всю ширину карточки
     if (g.small) {
       cx.textAlign = "center"; cx.textBaseline = "top";
-      cx.fillStyle = "#ececf2"; cx.font = "700 12px system-ui";
-      cx.fillText(c.name.toUpperCase(), x + g.cw / 2, cy + 62);
-      const b = { x: x + 10, y: cy + g.ch - 34, w: g.cw - 20, h: 26 }, bc = b.x + b.w / 2, byy = b.y + b.h / 2;
+      cx.fillStyle = "#ececf2"; cx.font = "700 10px system-ui";
+      cx.fillText(c.name.toUpperCase(), x + g.cw / 2, cy + 50);
+      const b = { x: x + 10, y: cy + g.ch - 28, w: g.cw - 20, h: 21 }, bc = b.x + b.w / 2, byy = b.y + b.h / 2;
       let bg, br, col, lab;
       if (active)      { bg = "rgba(245,197,66,.18)", br = "#f5c542", col = "#f5c542", lab = "ВЫБРАНА ★"; }
       else if (owned)  { bg = "rgba(63,174,122,.15)", br = "#3fae7a", col = "#7fe6a0", lab = "ЗАЕХАТЬ (выбрать)"; }
       else if (save.cash >= c.price) { bg = "#2f9e57", br = "#2f9e57", col = "#fff", lab = "КУПИТЬ  $" + c.price; }
       else             { bg = "rgba(70,70,82,.55)", br = "#4a4a56", col = "#a0a0ae", lab = "КУПИТЬ $" + c.price + " · мало $"; }
-      cx.fillStyle = bg; rr(b.x, b.y, b.w, b.h, 8);
-      cx.strokeStyle = br; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(b.x, b.y, b.w, b.h, 8); cx.stroke();
-      cx.fillStyle = col; cx.font = "700 13px system-ui"; cx.textBaseline = "middle";
+      cx.fillStyle = bg; rr(b.x, b.y, b.w, b.h, 7);
+      cx.strokeStyle = br; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(b.x, b.y, b.w, b.h, 7); cx.stroke();
+      cx.fillStyle = col; cx.font = "700 11px system-ui"; cx.textBaseline = "middle";
       cx.fillText(lab, bc, byy);
       return;
     }
