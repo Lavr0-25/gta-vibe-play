@@ -523,13 +523,15 @@ function update() {
     state.yT = Math.max(yMin, Math.min(yMax, state.yT));
     state.y += Math.max(-2.6, Math.min(2.6, (state.yT - state.y) * 0.14));
   }
-  // джойстик: ось Y тянет цель вперёд/назад, ось X — «флик» на соседнюю полосу
+  // джойстик: ось Y тянет цель вперёд/назад, ось X — шаги по полосам
+  // (держишь у края — идёт полоса за полосой с интервалом автоповтора)
   if (stick.id !== null) {
     state.yT += stick.dir.y * STK.ySpd;
-    if (stick.armed) {
-      if (stick.dir.x > STK.flip && state.lane < CFG.lanes) { state.lane++; stick.armed = false; }
-      else if (stick.dir.x < -STK.flip && state.lane > -1) { state.lane--; stick.armed = false; }
-    } else if (Math.abs(stick.dir.x) < STK.rearm) stick.armed = true;
+    if (stick.cd > 0) stick.cd -= 1 / 60;
+    if (Math.abs(stick.dir.x) >= STK.flip && stick.cd <= 0) {
+      const nl = state.lane + (stick.dir.x > 0 ? 1 : -1);
+      if (nl >= -1 && nl <= CFG.lanes) { state.lane = nl; stick.cd = STK.repeat; }
+    }
   }
   // столкновения: отскок, полоски в стороны, дым, звезда, здоровье
   state.inv = Math.max(0, state.inv - 1 / 60);
@@ -1081,8 +1083,8 @@ function pressBtn(key) {
   else if (key === "pause") togglePause();
 }
 /* джойстик */
-const STK = { r: 58, knob: 26, dead: 8, flip: 0.5, rearm: 0.3, ySpd: 2.6 };
-const stick = { id: null, dir: { x: 0, y: 0 }, armed: true };
+const STK = { r: 58, knob: 26, dead: 8, flip: 0.5, repeat: 0.28, ySpd: 2.6 };
+const stick = { id: null, dir: { x: 0, y: 0 }, cd: 0 };
 function stickPos() { return { x: W - 34 - STK.r, y: H - 96 - STK.r }; }
 function inStick(p) {
   const s = stickPos(), dx = p.x - s.x, dy = p.y - s.y;
@@ -1102,7 +1104,7 @@ cv.addEventListener("pointerdown", e => {
   if (TAP() && state.phase === "run" && !state.paused && inStick(p)) {
     const s = stickPos();               // движение считается ОТ ЦЕНТРА круга
     stick.id = e.pointerId;
-    stick.armed = true;
+    stick.cd = 0;
     stickMove(s.x, s.y, s.x, s.y);
     return;
   }
