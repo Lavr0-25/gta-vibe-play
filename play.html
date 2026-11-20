@@ -74,12 +74,14 @@ const CFG = {
 };
 /* ширина полосы адаптивная: телефоны видят всю дорогу (4 полосы в ширину экрана) */
 let laneWcur = 110;
+let isMobile = false;    // узкий экран (телефон) = мобильная версия: трафик облегчаем
 function levelCfg(n) {   // уровень N: длина, трафик, старт-скорость
+  const mob = isMobile;
   return {
     km: 10 + (n - 1) * 5,
-    spawn: Math.max(14, 40 - (n - 1) * 7),              // lvl1: трафик редкий, дальше плотнее
-    speedStart: Math.min(6, 4.5 + (n - 1) * 0.5),       // lvl1: медленный разгон мира
-    dirBoost: Math.min(1, 0.55 + (n - 1) * 0.15),       // встречка на ранних — медленнее
+    spawn: Math.max(14, (mob ? 56 : 40) - (n - 1) * 7),  // lvl1: трафик редкий (на телефоне ещё реже)
+    speedStart: Math.min(6, 4.5 + (n - 1) * 0.5),        // lvl1: медленный разгон мира
+    dirBoost: Math.min(1, (mob ? 0.40 : 0.55) + (n - 1) * 0.15),  // встречка на ранних — медленнее
   };
 }
 /* Магазин машин: цены/характеристики (id = ключ спрайта CAR_IMG) */
@@ -131,6 +133,7 @@ function resetRun() {
 function fit() {
   W = cv.width = innerWidth; H = cv.height = innerHeight;
   laneWcur = Math.max(66, Math.min(110, W / (CFG.lanes + 1.7)));  // телефоны: дорога уже, обочины видны
+  isMobile = laneWcur < 85;                                       // узкий экран — мобильное облегчение трафика
   if (state) state.y = H - Math.max(130, Math.round(H * 0.22));   // ниже = больше дороги спереди
 }
 const cv = document.getElementById("game");
@@ -432,6 +435,7 @@ function update() {
     if (c.stumble > 0) c.stumble -= 1 / 60;
     const bump = c.stumble > 0 ? 1.5 : 1;
     let dy = state.speed * (c.spd ?? 1) * bump * (c.dir === -1 ? (state.dirBoost || 1) : 1);
+    if (isMobile) dy *= 0.85;   // мобильное облегчение: весь поток (встречка и попутный) на ~15% медленнее
     if (c.cop && wanted && state.lane > c.lane) c.lane += 0.02;
     if (c.cop && wanted && state.lane < c.lane) c.lane -= 0.02;
     // чужая машина впеди (для копа и попутных) — притормозить, не проезжать насквозь
