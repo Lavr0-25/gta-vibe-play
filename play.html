@@ -772,9 +772,10 @@ function btnHit(m) {  // точка клика → кнопка?
 }
 
 /* ---------- экраны --------------------------------------------- */
-/* кнопка «начать сначала» в меню (с подтверждением) */
+/* кнопка «начать сначала» в меню (с подтверждением) — правый верхний угол,
+   чтобы не нажать случайно; первый тап только спрашивает «точно?» */
 const RST = { w: 220, h: 34 };
-function resetBtnRect() { return { x: (W - RST.w) / 2, y: H * 0.78, w: RST.w, h: RST.h }; }
+function resetBtnRect() { return { x: W - RST.w - 16, y: 16, w: RST.w, h: RST.h }; }
 function drawResetButton() {
   const r = resetBtnRect(), confirm = performance.now() - (state.resetAsk || 0) < 5000;
   cx.fillStyle = "rgba(20,20,30,.85)"; rr(r.x, r.y, r.w, r.h, 10);
@@ -782,7 +783,7 @@ function drawResetButton() {
   cx.beginPath(); cx.roundRect(r.x, r.y, r.w, r.h, 10); cx.stroke();
   cx.fillStyle = confirm ? "#ff6b6f" : "#a9a9b6"; cx.font = "700 15px system-ui";
   cx.textAlign = "center"; cx.textBaseline = "middle";
-  cx.fillText(confirm ? "ТОЧНО? — нажми ещё раз" : "НАЧАТЬ СНАЧАЛА", W / 2, r.y + r.h / 2 + 1);
+  cx.fillText(confirm ? "ТОЧНО? — нажми ещё раз" : "НАЧАТЬ С НАЧАЛА", r.x + r.w / 2, r.y + r.h / 2 + 1);
 }
 function resetClick(m) {
   const r = resetBtnRect();
@@ -843,7 +844,7 @@ function drawOverlays() {
     }
     centered("← → руль · M звук · P пауза", H * 0.52, "500 22px system-ui");
   centered("Левые полосы — встречка!", H * 0.55, "500 17px system-ui", "#8f8f9f");
-  centered("Кнопка «Начать сначала» сбрасывает прогресс", H * 0.595, "400 13px system-ui", "#5f5f6d");
+  centered("Кнопка «Начать с начала» (справа сверху) сбрасывает прогресс", H * 0.595, "400 13px system-ui", "#5f5f6d");
     centered("ПРОБЕЛ — СТАРТ УРОВНЯ " + save.level, H * 0.64, "900 30px system-ui", "#f5c542");
     centered("Деньги: $" + Math.floor(save.cash) + " · Машин: " + save.owned.length + " · Уровень " + save.level, H * 0.70, "600 17px system-ui", "#8f8f9f");
   drawResetButton();
