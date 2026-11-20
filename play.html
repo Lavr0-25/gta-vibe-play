@@ -75,13 +75,14 @@ const CFG = {
 /* ширина полосы адаптивная: телефоны видят всю дорогу (4 полосы в ширину экрана) */
 let laneWcur = 110;
 let isMobile = false;    // узкий экран (телефон) = мобильная версия: трафик облегчаем
+let carSC = 1;           // масштаб машин: на телефоне они мельче, чтобы влезали в узкие полосы
 function levelCfg(n) {   // уровень N: длина, трафик, старт-скорость
   const mob = isMobile;
   return {
     km: 10 + (n - 1) * 5,
-    spawn: Math.max(14, (mob ? 56 : 40) - (n - 1) * 7),  // lvl1: трафик редкий (на телефоне ещё реже)
+    spawn: Math.max(14, (mob ? 90 : 40) - (n - 1) * 9),  // lvl1: трафик редкий (на телефоне ещё реже)
     speedStart: Math.min(6, 4.5 + (n - 1) * 0.5),        // lvl1: медленный разгон мира
-    dirBoost: Math.min(1, (mob ? 0.40 : 0.55) + (n - 1) * 0.15),  // встречка на ранних — медленнее
+    dirBoost: Math.min(1, (mob ? 0.28 : 0.55) + (n - 1) * 0.15),  // встречка на ранних — медленнее
   };
 }
 /* Магазин машин: цены/характеристики (id = ключ спрайта CAR_IMG) */
@@ -132,8 +133,9 @@ function resetRun() {
 }
 function fit() {
   W = cv.width = innerWidth; H = cv.height = innerHeight;
-  laneWcur = Math.max(66, Math.min(110, W / (CFG.lanes + 1.7)));  // телефоны: дорога уже, обочины видны
+  laneWcur = Math.max(40, Math.min(110, W / (CFG.lanes + 3)));    // телефоны: дорога уже + широкие обочины (пальмы/город)
   isMobile = laneWcur < 85;                                       // узкий экран — мобильное облегчение трафика
+  carSC = Math.max(0.5, Math.min(1, laneWcur / 110));             // машины масштабируются под полосу — фикс коллизий соседних полос
   if (state) state.y = H - Math.max(130, Math.round(H * 0.22));   // ниже = больше дороги спереди
 }
 const cv = document.getElementById("game");
@@ -264,12 +266,17 @@ function makeAsphaltPattern() {
 function pushRoadside(forceLeft) {
   const roadL = (W - CFG.lanes * laneWcur) / 2, roadR = W - roadL;
   const left = forceLeft === undefined ? Math.random() < 0.5 : forceLeft;
-  if (!(left ? roadL > 140 : (W - roadR) > 140)) return;
+  const side = left ? roadL : (W - roadR);
+  const mob = side < 140;                       // узкая обочина (телефон): пальмы/знаки мельче, вплотную к дороге
+  if (side < (mob ? 55 : 140)) return;
   const what = Math.random() < 0.7 ? "palm" : "sign";
-  const s = what === "palm" ? 0.5 + Math.random() * 0.45 : 0.26 + Math.random() * 0.18;
+  const s = mob ? (what === "palm" ? 0.09 + Math.random() * 0.07 : 0.05 + Math.random() * 0.04)
+                : (what === "palm" ? 0.5 + Math.random() * 0.45 : 0.26 + Math.random() * 0.18);
   const im = DECO_IMG[what], half = im && im.naturalWidth ? im.naturalWidth * s / 2 : 90;
-  const x = left ? Math.min(roadL - 90 - Math.random() * (roadL - 220), roadL - half - 18)
-                 : Math.max(roadR + 90 + Math.random() * (W - roadR - 220), roadR + half + 18);
+  const x = mob ? (left ? roadL - half - 5 - Math.random() * 10
+                        : roadR + half + 5 + Math.random() * 10)
+                : (left ? Math.min(roadL - 90 - Math.random() * (roadL - 220), roadL - half - 18)
+                        : Math.max(roadR + 90 + Math.random() * (W - roadR - 220), roadR + half + 18));
   state.deco.push({ img: what, x, y: -190 - Math.random() * 80, s });
 }
 function pushCity(left) {   // крыши зданий и пруд — строго в пределах обочины
@@ -280,7 +287,8 @@ function pushCity(left) {   // крыши зданий и пруд — стро�
   const im = DECO_IMG[what]; if (!im || !im.complete || !im.naturalWidth) return;
   const rot = what === "pond" ? 0 : [0, 90, 270][Math.floor(Math.random() * 3)];
   const effW = (rot % 180) ? im.naturalHeight : im.naturalWidth;
-  const sMax = sideW * 0.42 / effW; if (sMax < 0.22) return;
+  const sMax = sideW * 0.42 / effW;
+  if (sMax < (sideW < 140 ? 0.085 : 0.22)) return;   // узкая обочина (телефон): город мельче, но есть
   const s = sMax * (0.72 + Math.random() * 0.28);
   const half = effW * s / 2; if (sideW < half * 2 + 36) return;
   const cMin = half + 16, cMax = sideW - half - 16;
@@ -319,7 +327,7 @@ function updateDeco() {   // прирост мира и спавн декора
     const roadL = (W - CFG.lanes * laneWcur) / 2, roadR = W - roadL;
     const side = Math.random() < 0.5 ? "left" : "right";
     const im0 = DECO_IMG.club; if (im0 && im0.complete && im0.naturalWidth) {
-      const s = Math.max(0.9, Math.min(1.5, (side === "left" ? roadL : W - roadR) / im0.naturalWidth * 1.35));
+      const s = Math.max(isMobile ? 0.35 : 0.9, Math.min(1.5, (side === "left" ? roadL : W - roadR) / im0.naturalWidth * 1.35));
       const iw = im0.naturalWidth * s, ih = im0.naturalHeight * s;
       const x = side === "left" ? roadL - iw * 0.62 : roadR + iw * 0.62;
       state.club = { x, y: -ih / 2 - 40, w: iw, h: ih, side };
@@ -435,7 +443,7 @@ function update() {
     if (c.stumble > 0) c.stumble -= 1 / 60;
     const bump = c.stumble > 0 ? 1.5 : 1;
     let dy = state.speed * (c.spd ?? 1) * bump * (c.dir === -1 ? (state.dirBoost || 1) : 1);
-    if (isMobile) dy *= 0.85;   // мобильное облегчение: весь поток (встречка и попутный) на ~15% медленнее
+    if (isMobile) dy *= 0.72;   // мобильное облегчение: весь поток (встречка и попутный) на ~28% медленнее
     if (c.cop && wanted && state.lane > c.lane) c.lane += 0.02;
     if (c.cop && wanted && state.lane < c.lane) c.lane -= 0.02;
     // чужая машина впеди (для копа и попутных) — притормозить, не проезжать насквозь
@@ -492,8 +500,8 @@ function update() {
     if (state.inv > 0) break;
     const cxp = laneX(c.lane);
     const PC = CARS[save.car];
-    const hitX = Math.abs(px - cxp) < (PC.w + c.w) / 2 - 12;
-    const hitY = Math.abs(state.y - c.y) < (PC.l + c.l) / 2 - 12;
+    const hitX = Math.abs(px - cxp) < (PC.w + c.w) / 2 * carSC - 12;
+    const hitY = Math.abs(state.y - c.y) < (PC.l + c.l) / 2 * carSC - 12;
     if (!hitX || !hitY) continue;
     resolveCrash(c);
     break;
@@ -550,11 +558,11 @@ function draw() {
   drawMoney();
   // ориентация: кто быстрее дороги — встречный (носом к игроку),
   // кто медленнее — попутный (носом вверх, как игрок)
-  for (const c of state.cars) drawSprite(CAR_IMG[c.img], laneX(c.lane), c.y, c.w, c.l, (c.spd ?? 1) > 1);
+  for (const c of state.cars) drawSprite(CAR_IMG[c.img], laneX(c.lane), c.y, c.w * carSC, c.l * carSC, (c.spd ?? 1) > 1);
   // игрок: подскок при ударе + мигание при неуязвимости
   const bounceY = Math.sin(state.bounce * Math.PI * 4) * state.bounce * 10;
   if (!(state.inv > 0 && Math.floor(performance.now() / 90) % 2))
-    drawSprite(CAR_IMG[save.car], laneX(state.lane), state.y + bounceY, CARS[save.car].w, CARS[save.car].l, false);
+    drawSprite(CAR_IMG[save.car], laneX(state.lane), state.y + bounceY, CARS[save.car].w * carSC, CARS[save.car].l * carSC, false);
   drawBridges(); drawSmoke(); drawPops();
   cx.restore();
   if (state.phase === "run" || state.phase === "garage") drawHUD();
@@ -582,11 +590,11 @@ function drawMoney() {   // пачки долларов на дороге
     p.b += 0.05;
     cx.save(); cx.translate(laneX(p.lane), p.y + Math.sin(p.b) * 3);
     cx.shadowColor = "rgba(63,200,90,.8)"; cx.shadowBlur = 14;
-    cx.fillStyle = "#2f9e57"; rr(-26, -14, 52, 28, 6);
+    cx.fillStyle = "#2f9e57"; rr(-26 * carSC, -14 * carSC, 52 * carSC, 28 * carSC, 6);
     cx.shadowBlur = 0;
     cx.strokeStyle = "#d8ffe3"; cx.lineWidth = 2;
-    cx.beginPath(); cx.roundRect(-26, -14, 52, 28, 6); cx.stroke();
-    cx.fillStyle = "#d8ffe3"; cx.font = "900 20px system-ui"; cx.textAlign = "center"; cx.textBaseline = "middle";
+    cx.beginPath(); cx.roundRect(-26 * carSC, -14 * carSC, 52 * carSC, 28 * carSC, 6); cx.stroke();
+    cx.fillStyle = "#d8ffe3"; cx.font = `900 ${Math.round(20 * carSC)}px system-ui`; cx.textAlign = "center"; cx.textBaseline = "middle";
     cx.fillText("$", 0, 1); cx.restore();
   }
 }
