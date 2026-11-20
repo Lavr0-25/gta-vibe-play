@@ -519,6 +519,14 @@ function update() {
     state.yT = Math.max(yMin, Math.min(yMax, state.yT));
     state.y += Math.max(-2.6, Math.min(2.6, (state.yT - state.y) * 0.14));
   }
+  // джойстик: ось Y тянет цель вперёд/назад, ось X — «флик» на соседнюю полосу
+  if (stick.id !== null) {
+    state.yT += stick.dir.y * STK.ySpd;
+    if (stick.armed) {
+      if (stick.dir.x > STK.flip && state.lane < CFG.lanes) { state.lane++; stick.armed = false; }
+      else if (stick.dir.x < -STK.flip && state.lane > -1) { state.lane--; stick.armed = false; }
+    } else if (Math.abs(stick.dir.x) < STK.rearm) stick.armed = true;
+  }
   // столкновения: отскок, полоски в стороны, дым, звезда, здоровье
   state.inv = Math.max(0, state.inv - 1 / 60);
   const px = laneX(state.lane);
@@ -765,6 +773,23 @@ function drawButtons() {
       else { cx.fillRect(cxp - 7, cyp - 8, 5, 16); cx.fillRect(cxp + 3, cyp - 8, 5, 16); }
     }
   }
+  drawStick();
+}
+/* джойстик (телефон): постоянный полупрозрачный круг справа внизу,
+   ручка появляется при касании; в круге — только движение */
+function drawStick() {
+  if (!TAP() || state.phase !== "run") return;
+  const s = stickPos();
+  cx.save();
+  cx.fillStyle = "rgba(255,255,255,.07)";
+  cx.beginPath(); cx.arc(s.x, s.y, STK.r, 0, 7); cx.fill();
+  cx.strokeStyle = "rgba(255,255,255,.35)"; cx.lineWidth = 2;
+  cx.beginPath(); cx.arc(s.x, s.y, STK.r, 0, 7); cx.stroke();
+  if (stick.id !== null) {              // ручка — только пока палец на круге
+    cx.fillStyle = "rgba(216,216,216,.55)";
+    cx.beginPath(); cx.arc(stick.knobX ?? s.x, stick.knobY ?? s.y, STK.knob, 0, 7); cx.fill();
+  }
+  cx.restore();
 }
 function btnHit(m) {  // точка клика → кнопка?
   for (const key of ["snd", "pause"]) {
@@ -1040,58 +1065,89 @@ function applyShopKey(n) {   // 1..4 в магазине
   const id = shopGeom().ids[n - 1]; if (!id) return;
   applyShopCar(id);
 }
-/* сенсорное управление (QR-игроки с телефонами):
-   свайп вверх/вниз — движение вперёд/назад, тап — полоса (край экрана — карман-обочина) */
-let lastTouchT = -9999;   // тап и click дублируются на телефонах — глушим второй
-let touchS = null;        // точка старта свайпа
-let touchBtn = false;     // тап пришёлся на кнопку (lane-логику глушим)
-function pressBtn(key) {       // тап по кнопке: как click handler, но сразу
+/* ---------- управление тачем и мышью (pointer-события) ----------
+   Джойстик (как в pixel-raid): фиксированный круг справа внизу, ручка
+   следует за пальцем от центра; ось X — перестроение по полосам
+   («флик» за порог = шаг, вернул к центру — перезарядка), ось Y —
+   плавно вперёд/назад. В круге — ТОЛЬКО движение (урок pixel-raid).
+   Тап по дороге — ближайшая полоса, свайп ↑↓ — большой шаг вперёд/назад. */
+let lastTouchT = -9999;
+function pressBtn(key) {
   if (key === "snd") Sfx.toggleMute();
   else if (key === "pause") togglePause();
 }
-cv.addEventListener("touchstart", e => {
+/* джойстик */
+const STK = { r: 58, knob: 26, dead: 8, flip: 0.5, rearm: 0.3, ySpd: 2.6 };
+const stick = { id: null, dir: { x: 0, y: 0 }, armed: true };
+function stickPos() { return { x: W - 34 - STK.r, y: H - 96 - STK.r }; }
+function inStick(p) {
+  const s = stickPos(), dx = p.x - s.x, dy = p.y - s.y;
+  return dx * dx + dy * dy <= (STK.r + 14) * (STK.r + 14);
+}
+let tapS = null;          // кандидат на тап/свайп (палец вне джойстика)
+cv.addEventListener("pointerdown", e => {
   lastTouchT = performance.now();
   Sfx.boot();
-  const tch = e.touches[0], rect = cv.getBoundingClientRect();
-  const tt = { x: tch.clientX - rect.left, y: tch.clientY - rect.top };
-  touchS = tt; touchBtn = false;
-  const b = btnHit(tt);                                  // кнопки — свои (тап глушит click-дубль)
-  if (b) { touchBtn = true; pressBtn(b); return; }
-  if (resetClick(tt)) { touchBtn = true; return; }
-  if (shopClick(tt)) { touchBtn = true; return; }
-  if (pauseClick(tt)) { touchBtn = true; return; }
-  advance();
-}, { passive: true });
-cv.addEventListener("touchend", e => {
-  if (!touchS || touchBtn) return;
-  const t = e.changedTouches[0], rect = cv.getBoundingClientRect();
-  const dx = (t.clientX - rect.left) - touchS.x, dy = (t.clientY - rect.top) - touchS.y;
-  if (state.phase === "run" && !state.paused) {
-    if (Math.abs(dy) >= 36 && Math.abs(dy) > Math.abs(dx)) {   // свайп: вперёд/назад
-      state.yT += (dy < 0 ? -1 : 1) * H * 0.16;
-    } else {   // тап: ЕДЕМ в ближайшую к точке тапа полосу (карманы −1 и CFG.lanes тоже)
-      let best = state.lane, bd = 1e9;
-      for (let l = -1; l <= CFG.lanes; l++) {
-        const d = Math.abs(touchS.x - laneX(l));
-        if (d < bd) { bd = d; best = l; }
-      }
-      state.lane = best;
-    }
+  const rect = cv.getBoundingClientRect();
+  const p = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  const b = btnHit(p);
+  if (b) { pressBtn(b); return; }
+  if (resetClick(p)) return;
+  if (shopClick(p)) return;
+  if (pauseClick(p)) return;
+  if (TAP() && state.phase === "run" && !state.paused && inStick(p)) {
+    const s = stickPos();               // движение считается ОТ ЦЕНТРА круга
+    stick.id = e.pointerId;
+    stick.armed = true;
+    stickMove(s.x, s.y, s.x, s.y);
+    return;
   }
-  touchS = null;
-}, { passive: true });
-cv.addEventListener("click", e => {
-  if (performance.now() - lastTouchT < 600) return;   // это был тап — click пропускаем
-  Sfx.boot();
-  const m = { x: e.clientX, y: e.clientY };
-  const b = btnHit(m);
-  if (b === "snd") { Sfx.toggleMute(); return; }
-  if (b === "pause") { togglePause(); return; }
-  if (resetClick(m)) return;
-  if (shopClick(m)) return;
-  if (pauseClick(m)) return;
-  advance();
+  if (state.phase !== "run" || state.paused) { advance(); return; }
+  tapS = p;                             // ждём pointerup: свайп или тап
 });
+function stickMove(sx, sy, px, py) {
+  let dx = px - sx, dy = py - sy;
+  const dist = Math.hypot(dx, dy);
+  if (dist < STK.dead) { stick.dir.x = stick.dir.y = 0; return; }
+  const travel = Math.min(dist, STK.r - STK.knob);
+  dx = dx / dist * travel; dy = dy / dist * travel;
+  stick.dir.x = dx / (STK.r - STK.knob);
+  stick.dir.y = dy / (STK.r - STK.knob);
+  stick.knobX = sx + dx; stick.knobY = sy + dy;
+}
+function stickRelease(e) {
+  if (e.pointerId !== stick.id) return;
+  stick.id = null; stick.dir.x = stick.dir.y = 0;
+  stick.knobX = undefined;
+}
+cv.addEventListener("pointermove", e => {
+  if (e.pointerId !== stick.id) return;
+  const rect = cv.getBoundingClientRect();
+  const s = stickPos();
+  stickMove(s.x, s.y, e.clientX - rect.left, e.clientY - rect.top);
+});
+addEventListener("pointerup", e => {   // страховка от «залипшего» стика (урок pixel-raid)
+  stickRelease(e);
+});
+cv.addEventListener("pointerup", e => {
+  if (stick.id !== null) stickRelease(e);
+  if (tapS === null) return;
+  const rect = cv.getBoundingClientRect();
+  const dx = (e.clientX - rect.left) - tapS.x, dy = (e.clientY - rect.top) - tapS.y;
+  tapS = null;
+  if (state.phase !== "run" || state.paused || stick.id !== null) return;
+  if (Math.abs(dy) >= 36 && Math.abs(dy) > Math.abs(dx)) {   // свайп: вперёд/назад
+    state.yT += (dy < 0 ? -1 : 1) * H * 0.16;
+    return;
+  }
+  let best = state.lane, bd = 1e9;          // тап: ближайшая полоса (и карманы)
+  for (let l = -1; l <= CFG.lanes; l++) {
+    const d = Math.abs((e.clientX - rect.left) - laneX(l));
+    if (d < bd) { bd = d; best = l; }
+  }
+  state.lane = best;
+});
+addEventListener("pointercancel", e => { stickRelease(e); tapS = null; });
 function togglePause() {
   if (!["run", "intro", "garage"].includes(state.phase)) return;
   state.paused = !state.paused; Sfx.siren(false); Sfx.engine(false, 0);

@@ -20,28 +20,21 @@
 </style>
 </head>
 <body>
-<iframe id="gamefr" src="play.html?v=15" title="Vibe Racer 2" allow="fullscreen; autoplay"></iframe>
+<iframe id="gamefr" src="play.html?v=16" title="Vibe Racer 2" allow="fullscreen; autoplay"></iframe>
 <div id="bar">
   <a href="howto.html">Как сделано</a>
   <span class="sub">Игра: <a href="https://t.me/ALavr0" target="_blank" rel="noopener noreferrer" style="color:#c9c9d4">Лаврухин Анатолий · ТГ @ALavr0</a></span>
   <a href="https://messenger.sbrf.ru/sl/uFZJeGB6JLtQGAxrB" target="_blank" rel="noopener noreferrer">💛 Поддержать (Сбер)</a>
   <a href="https://t.me/ALavr0" target="_blank" rel="noopener noreferrer">✈️ Telegram @ALavr0</a>
 </div>
-<button id="tab" title="Показать панель" style="display:none;position:fixed;right:10px;bottom:10px;
-  width:38px;height:38px;border-radius:50%;border:1px solid #2c2c3a;background:rgba(13,13,20,.85);
-  color:#f0a835;font:700 18px system-ui;cursor:pointer;z-index:9">▲</button>
 <script>
 // клавиатура должна идти в игру: iframe ловит фокус после загрузки и кликов
 const fr = document.getElementById("gamefr");
 fr.addEventListener("load", () => fr.contentWindow.focus());
 document.addEventListener("click", () => fr.contentWindow.focus());
-// полоса-подвал скрывается, пока идёт гонка (сообщение от игры), и по тапу на «▲» возвращается
-const bar = document.getElementById("bar"), tab = document.getElementById("tab");
-function barShow(v) {
-  bar.style.display = v ? "flex" : "none";
-  tab.style.display = v ? "none" : "block";
-}
-tab.addEventListener("click", e => { e.stopPropagation(); barShow(true); });
+// полоса-подвал скрывается, пока идёт гонка (сообщение от игры), и возвращается на остальных экранах
+const bar = document.getElementById("bar");
+function barShow(v) { bar.style.display = v ? "flex" : "none"; }
 addEventListener("message", e => {
   if (!e.data || !e.data.gta) return;
   if (e.data.gta === "run") barShow(false);      // гонка: полосу долой
