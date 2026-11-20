@@ -867,7 +867,54 @@ function drawOverlays() {
     cx.fillStyle = "rgba(10,10,16,.7)"; cx.fillRect(0, 0, W, H);
     centered("ПАУЗА", H / 2 - 20, "900 56px system-ui");
     centered("P или кнопка ▶ — продолжить", H / 2 + 50, "500 22px system-ui", "#8f8f9f");
+    drawPauseButtons();
   }
+}
+
+/* кнопки на паузе: «заново уровень» (один тап, деньги остаются) и
+   «сброс всей игры» (два тапа с «ТОЧНО?», как в меню) */
+function pauseBtnRects() {
+  const w = Math.min(W - 40, 340), h = Math.max(38, 44 * UI_SC), x = (W - w) / 2;
+  return { lvl: { x, y: H * 0.60, w, h }, rst: { x, y: H * 0.60 + h + 16, w, h: Math.max(32, 38 * UI_SC) } };
+}
+function drawPauseButtons() {
+  const r = pauseBtnRects();
+  cx.textAlign = "center"; cx.textBaseline = "middle";
+  // заново уровень
+  cx.fillStyle = "rgba(245,197,66,.16)"; rr(r.lvl.x, r.lvl.y, r.lvl.w, r.lvl.h, 12);
+  cx.strokeStyle = "#f0a835"; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(r.lvl.x, r.lvl.y, r.lvl.w, r.lvl.h, 12); cx.stroke();
+  cx.fillStyle = "#f5c542"; cx.font = "700 18px system-ui";
+  cx.fillText("ЗАНОВО — УРОВЕНЬ " + save.level, r.lvl.x + r.lvl.w / 2, r.lvl.y + r.lvl.h / 2);
+  // полный сброс (с подтверждением)
+  const confirmP = state.resetAskP && performance.now() - state.resetAskP < 5000;
+  cx.fillStyle = confirmP ? "rgba(255,77,79,.2)" : "rgba(20,20,30,.85)";
+  rr(r.rst.x, r.rst.y, r.rst.w, r.rst.h, 10);
+  cx.strokeStyle = "#ff6b6f"; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(r.rst.x, r.rst.y, r.rst.w, r.rst.h, 10); cx.stroke();
+  cx.fillStyle = confirmP ? "#ff6b6f" : "#a9a9b6"; cx.font = "700 " + (confirmP ? 15 : 13) + "px system-ui";
+  cx.fillText(confirmP ? "ТОЧНО? — нажми ещё раз" : "СБРОСИТЬ ВСЮ ИГРУ", r.rst.x + r.rst.w / 2, r.rst.y + r.rst.h / 2);
+  // подпись, чтобы не перепутать при «ТОЧНО?»
+  if (!confirmP) {
+    cx.fillStyle = "#5f5f6d"; cx.font = "400 10px system-ui";
+    cx.fillText("деньги: $0 · гараж: спорткар · уровень: 1", r.rst.x + r.rst.w / 2, r.rst.y + r.rst.h + 14);
+  }
+}
+function pauseClick(m) {
+  if (!state.paused || !["run", "intro", "garage"].includes(state.phase)) return false;
+  const r = pauseBtnRects();
+  const inR = (q) => m.x >= q.x && m.x <= q.x + q.w && m.y >= q.y && m.y <= q.y + q.h;
+  if (inR(r.lvl)) {                      // заново текущий уровень
+    Sfx.siren(false); Sfx.engine(false, 0);
+    resetRun(); return true;
+  }
+  if (inR(r.rst)) {                      // полный сброс, два тапа
+    const confirmP = state.resetAskP && performance.now() - state.resetAskP < 5000;
+    if (!confirmP) { state.resetAskP = performance.now(); return true; }
+    Sfx.siren(false); Sfx.engine(false, 0); Sfx.wasted();
+    save = { cash: 0, owned: ["sport"], car: "sport", level: 1 }; storeSave();
+    resetRun(); state.phase = "menu";
+    return true;
+  }
+  return false;
 }
 function fmtTime() {
   const t = Math.max(0, Math.floor((state.timeDone !== undefined ? state.timeDone : (performance.now() - state.t0 - 1600)) / 1000));
@@ -1012,6 +1059,7 @@ cv.addEventListener("touchstart", e => {
   if (b) { touchBtn = true; pressBtn(b); return; }
   if (resetClick(tt)) { touchBtn = true; return; }
   if (shopClick(tt)) { touchBtn = true; return; }
+  if (pauseClick(tt)) { touchBtn = true; return; }
   advance();
 }, { passive: true });
 cv.addEventListener("touchend", e => {
@@ -1041,6 +1089,7 @@ cv.addEventListener("click", e => {
   if (b === "pause") { togglePause(); return; }
   if (resetClick(m)) return;
   if (shopClick(m)) return;
+  if (pauseClick(m)) return;
   advance();
 });
 function togglePause() {
