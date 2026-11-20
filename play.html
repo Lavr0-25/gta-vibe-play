@@ -700,42 +700,43 @@ function drawMinimap() {
 function drawHUD() {
   drawMinimap();
   // GTA-худ правый верхний угол: значок, таймер, здоровье, деньги, звёзды
-  const pad = 16, box = 58, t = Math.floor((state.timeDone !== undefined ? state.timeDone : (performance.now() - state.t0 - 1600)) / 1000);
+  const k = tapUI ? 0.55 : 1;   // мобайл: HUD заметно компактнее (площадь в ~3 раза меньше)
+  const pad = Math.round(16 * k), box = Math.round(58 * k),
+        t = Math.floor((state.timeDone !== undefined ? state.timeDone : (performance.now() - state.t0 - 1600)) / 1000);
   const x1 = W - pad;
   cx.save(); cx.textBaseline = "top";
   // таймер
   const mins = String(Math.max(0, Math.floor(t / 60))).padStart(2, "0"), secs = String(Math.max(0, t % 60)).padStart(2, "0");
-  cx.fillStyle = "#fff"; cx.font = "900 40px system-ui"; cx.textAlign = "right";
-  cx.strokeStyle = "#000"; cx.lineWidth = 5; cx.strokeText(mins + ":" + secs, x1 - box - 10, pad); cx.fillText(mins + ":" + secs, x1 - box - 10, pad);
+  cx.fillStyle = "#fff"; cx.font = "900 " + Math.round(40 * k) + "px system-ui"; cx.textAlign = "right";
+  cx.strokeStyle = "#000"; cx.lineWidth = 5 * k; cx.strokeText(mins + ":" + secs, x1 - box - 10 * k, pad); cx.fillText(mins + ":" + secs, x1 - box - 10 * k, pad);
   // тайл со значком (машинка игрока)
-  cx.fillStyle = "rgba(8,8,12,.9)"; rr(x1 - box, pad, box, box, 12);
-  cx.strokeStyle = "#fff"; cx.lineWidth = 3; cx.beginPath(); cx.roundRect(x1 - box, pad, box, box, 12); cx.stroke();
+  cx.fillStyle = "rgba(8,8,12,.9)"; rr(x1 - box, pad, box, box, 12 * k);
+  cx.strokeStyle = "#fff"; cx.lineWidth = 3 * k; cx.beginPath(); cx.roundRect(x1 - box, pad, box, box, 12 * k); cx.stroke();
   const mini = CAR_IMG[save.car];
-  if (mini && mini.complete) cx.drawImage(mini, x1 - box + 10, pad + 10, box - 20, box - 20);
+  if (mini && mini.complete) cx.drawImage(mini, x1 - box + 10 * k, pad + 10 * k, box - 20 * k, box - 20 * k);
   // полоса здоровья
-  const bw = 150;
-  cx.fillStyle = "rgba(8,8,12,.9)"; rr(x1 - bw, pad + box + 8, bw, 16, 6);
+  const bw = 150 * k;
+  cx.fillStyle = "rgba(8,8,12,.9)"; rr(x1 - bw, pad + box + 8 * k, bw, 16 * k, 6 * k);
   cx.fillStyle = "#e74c3c"; if (state.hp <= state.hpMax * 0.35) cx.fillStyle = "#c0392b";
-  const hw = Math.round((state.hp / state.hpMax) * (bw - 4));
-  rr(x1 - bw + 2, pad + box + 10, Math.max(2, hw), 12, 4);
+  const hw = Math.round((state.hp / state.hpMax) * (bw - 4 * k));
+  rr(x1 - bw + 2 * k, pad + box + 10 * k, Math.max(2, hw), 12 * k, 4 * k);
   // деньги
   const moneyStr = "$" + String(Math.floor(save.cash)).padStart(8, "0");
-  cx.font = "900 34px system-ui"; cx.textAlign = "right";
-  cx.strokeStyle = "#000"; cx.lineWidth = 4; cx.strokeText(moneyStr, x1, pad + box + 34);
-  cx.fillStyle = "#37b34a"; cx.fillText(moneyStr, x1, pad + box + 34);
+  cx.font = "900 " + Math.round(34 * k) + "px system-ui"; cx.textAlign = "right";
+  cx.strokeStyle = "#000"; cx.lineWidth = 4 * k; cx.strokeText(moneyStr, x1, pad + box + 34 * k);
+  cx.fillStyle = "#37b34a"; cx.fillText(moneyStr, x1, pad + box + 34 * k);
   // звёзды розыска: пустые рисуются тёмным цветом (глиф один — цвет разный)
-  const stx = x1 - 5 * 34 + 10;
-  cx.font = "900 30px system-ui"; cx.textAlign = "right";
-  cx.strokeStyle = "#000"; cx.lineWidth = 4;
+  cx.font = "900 " + Math.round(30 * k) + "px system-ui"; cx.textAlign = "right";
+  cx.strokeStyle = "#000"; cx.lineWidth = 4 * k;
   for (let i = 0; i < 5; i++) {
-    const sx = x1 - (4 - i) * 34;
-    cx.strokeText("★", sx, pad + box + 72);
+    const sx = x1 - (4 - i) * 34 * k;
+    cx.strokeText("★", sx, pad + box + 72 * k);
     cx.fillStyle = i < state.stars ? (state.stars >= 3 ? "#ff5a5f" : "#f5c542") : "#3a3a46";
-    cx.fillText("★", sx, pad + box + 72);
+    cx.fillText("★", sx, pad + box + 72 * k);
   }
   // прогресс уровня
-  cx.font = "600 18px system-ui";
-  ctxProgress(x1, pad + box + 108);
+  cx.font = "600 " + Math.round(18 * k) + "px system-ui";
+  ctxProgress(x1, pad + box + 108 * k);
   cx.restore();
 }
 function ctxProgress(x1, y) {
