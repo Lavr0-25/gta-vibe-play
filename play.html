@@ -780,7 +780,9 @@ function btnHit(m) {  // точка клика → кнопка?
 const RST = { w: 220, h: 34 };
 function resetBtnRect() { return { x: W - RST.w - 16, y: 16, w: RST.w, h: RST.h }; }
 function drawResetButton() {
-  const r = resetBtnRect(), confirm = performance.now() - (state.resetAsk || 0) < 5000;
+  const r = resetBtnRect();
+  // подтверждение: ТОЛЬКО если был первый тап (resetAsk выставлен реально), иначе «Начать с начала»
+  const confirm = state.resetAsk && performance.now() - state.resetAsk < 5000;
   cx.fillStyle = "rgba(20,20,30,.85)"; rr(r.x, r.y, r.w, r.h, 10);
   cx.strokeStyle = "#ff6b6f"; cx.lineWidth = 2;
   cx.beginPath(); cx.roundRect(r.x, r.y, r.w, r.h, 10); cx.stroke();
@@ -792,7 +794,7 @@ function resetClick(m) {
   const r = resetBtnRect();
   if (state.phase !== "menu") return false;
   if (m.x < r.x || m.x > r.x + r.w || m.y < r.y || m.y > r.y + r.h) return false;
-  const confirm = performance.now() - (state.resetAsk || 0) < 5000;
+  const confirm = state.resetAsk && performance.now() - state.resetAsk < 5000;
   if (!confirm) { state.resetAsk = performance.now(); return true; }
   save = { cash: 0, owned: ["sport"], car: "sport", level: 1 }; storeSave();
   resetRun(); state.phase = "menu"; state.resetAsk = 0; Sfx.wasted();
