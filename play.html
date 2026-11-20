@@ -75,6 +75,7 @@ const CFG = {
 /* ширина полосы адаптивная: телефоны видят всю дорогу (4 полосы в ширину экрана) */
 let laneWcur = 110;
 let isMobile = false;    // узкий экран (телефон) = мобильная версия: трафик облегчаем
+let tapUI = false;       // подсказки интерфейса: на таче без «ПРОБЕЛ»
 let carSC = 1;           // масштаб машин: на телефоне они мельче, чтобы влезали в узкие полосы
 function levelCfg(n) {   // уровень N: длина, трафик, старт-скорость
   const mob = isMobile;
@@ -138,6 +139,7 @@ function fit() {
   W = cv.width = innerWidth; H = cv.height = innerHeight;
   laneWcur = Math.max(40, Math.min(110, W / (CFG.lanes + 3)));    // телефоны: дорога уже + широкие обочины (пальмы/город)
   isMobile = laneWcur < 85;                                       // узкий экран — мобильное облегчение трафика
+  tapUI = laneWcur < 85;                                          // тач-подсказки: поворот экрана тоже пересчитывает
   carSC = Math.max(0.5, Math.min(1, laneWcur / 110));             // машины масштабируются под полосу — фикс коллизий соседних полос
   if (state) state.y = state.yT = H - Math.max(130, Math.round(H * 0.22));  // ниже = больше дороги спереди
 }
@@ -812,13 +814,14 @@ function centered(txt, y, font, color) {
   cx.fillText(txt, W / 2, y);
 }
 const DBG = { overlays: 0 };
+const TAP = () => tapUI;   // на тач-экране подсказки про ПРОБЕЛ заменяем на «тап» (живой флаг)
 function drawOverlays() {
   uiScale();
   if (state.phase === "intro") {
     panel(640, 260);
     centered("УРОВЕНЬ " + save.level, H / 2 - 70 * UI_SC, "900 56px system-ui", "#f0a835");
     centered("ЦЕЛЬ: ПРОЕХАТЬ " + state.targetKm + " КМ · БЕРЕГИ МАШИНУ", H / 2, "600 24px system-ui");
-    centered("ПРОБЕЛ — СТАРТ", H / 2 + 66 * UI_SC, "500 22px system-ui", "#8f8f9f");
+    centered(TAP() ? "ТАП ПО ЭКРАНУ — СТАРТ" : "ПРОБЕЛ — СТАРТ", H / 2 + 66 * UI_SC, "500 22px system-ui", "#8f8f9f");
   }
   if (state.phase === "garage") {
     centered("ПОЕЗДКА ЗАВЕРШЕНА — ГАРАЖ!", H * 0.18, "900 44px system-ui", "#f5c542");
@@ -832,7 +835,7 @@ function drawOverlays() {
       "Розыск: " + "★".repeat(state.stars) + "☆".repeat(5 - state.stars) + "   ·   Машин в гараже: " + save.owned.length,
     ];
     rows.forEach((s, i) => centered(s, H / 2 - 44 * UI_SC + i * 42 * UI_SC, "600 24px system-ui"));
-    centered("ПРОБЕЛ — В МАГАЗИН МАШИН", H / 2 + 120 * UI_SC, "700 26px system-ui", "#f0a835");
+    centered(TAP() ? "ТАП ПО ЭКРАНУ — В МАГАЗИН МАШИН" : "ПРОБЕЛ — В МАГАЗИН МАШИН", H / 2 + 120 * UI_SC, "700 26px system-ui", "#f0a835");
   }
   if (state.phase === "shop") drawShop();
   if (state.phase === "menu") {
@@ -842,10 +845,10 @@ function drawOverlays() {
       const s = Math.min((W * 0.72) / im.naturalWidth, (H * 0.4) / im.naturalHeight);
       cx.drawImage(im, (W - im.naturalWidth * s) / 2, H * 0.12, im.naturalWidth * s, im.naturalHeight * s);
     }
-    centered("← → руль · M звук · P пауза", H * 0.52, "500 22px system-ui");
+    centered(TAP() ? "Тап по дороге — руль · свайп ↑↓ — вперёд/назад" : "← → руль · M звук · P пауза", H * 0.52, "500 22px system-ui");
   centered("Левые полосы — встречка!", H * 0.55, "500 17px system-ui", "#8f8f9f");
   centered("Кнопка «Начать с начала» (справа сверху) сбрасывает прогресс", H * 0.595, "400 13px system-ui", "#5f5f6d");
-    centered("ПРОБЕЛ — СТАРТ УРОВНЯ " + save.level, H * 0.64, "900 30px system-ui", "#f5c542");
+    centered((TAP() ? "ТАП ПО ЭКРАНУ — СТАРТ УРОВНЯ " : "ПРОБЕЛ — СТАРТ УРОВНЯ ") + save.level, H * 0.64, "900 30px system-ui", "#f5c542");
     centered("Деньги: $" + Math.floor(save.cash) + " · Машин: " + save.owned.length + " · Уровень " + save.level, H * 0.70, "600 17px system-ui", "#8f8f9f");
   drawResetButton();
   }
@@ -855,7 +858,7 @@ function drawOverlays() {
     const s5 = state.stars >= 5;
     centered(s5 ? "Полный розыск 5★ — патруль догнал" : "Машина разбита (здоровье 0)", H / 2 - 10, "600 26px system-ui");
     centered("Деньги сохранены: $" + Math.floor(save.cash) + " · Уровень начнётся заново", H / 2 + 42 * UI_SC, "500 20px system-ui", "#8f8f9f");
-    centered("ПРОБЕЛ — ПОПРОБОВАТЬ СНОВА", H / 2 + 112 * UI_SC, "700 26px system-ui", "#f0a835");
+    centered(TAP() ? "ТАП ПО ЭКРАНУ — ПОПРОБОВАТЬ СНОВА" : "ПРОБЕЛ — ПОПРОБОВАТЬ СНОВА", H / 2 + 112 * UI_SC, "700 26px system-ui", "#f0a835");
   }
   if (state.paused) {
     cx.fillStyle = "rgba(10,10,16,.7)"; cx.fillRect(0, 0, W, H);
@@ -871,16 +874,20 @@ function fmtTime() {
 function shopGeom() {
   const ids = ["sport", "sedan", "pickup", "cop", "tank"];
   const cols = W < 620 ? 2 : Math.min(5, Math.max(2, Math.floor(W / 250)));
+  const small = W < 620;
   const cw = Math.min(190, (W - 40 - 16 * (cols - 1)) / cols);
-  const ch = W < 620 ? 178 : 240;
-  return { cw, ch, y0: W < 620 ? H * 0.20 : H * 0.28, x0: (W - (cw + 16) * cols + 16) / 2, ids,
-           cols, gapy: W < 620 ? 10 : 16, small: W < 620 };
+  const ch = small ? 136 : 240;
+  const y0 = small ? H * 0.20 : H * 0.28;
+  return { cw, ch, y0, x0: (W - (cw + 16) * cols + 16) / 2, ids,
+           cols, gapy: small ? 18 : 16, small };
 }
 function drawShop() {
   const g = shopGeom();
   cx.fillStyle = "rgba(10,10,16,.86)"; cx.fillRect(0, 0, W, H);
-  centered("МАГАЗИН МАШИН", H * 0.12, "900 46px system-ui", "#f0a835");
-  centered("Деньги: $" + Math.floor(save.cash) + " · клавиши 1–4 или клик · ПРОБЕЛ — УРОВЕНЬ " + (save.level + 1), H * 0.2, "600 22px system-ui", "#8f8f9f");
+  centered("МАГАЗИН МАШИН", H * 0.10, "900 46px system-ui", "#f0a835");
+  centered(TAP() ? "Деньги: $" + Math.floor(save.cash) + " · тап по машине — купить/выбрать"
+                 : "Деньги: $" + Math.floor(save.cash) + " · клавиши 1–4 или клик · ПРОБЕЛ — УРОВЕНЬ " + (save.level + 1),
+           H * 0.185, "600 22px system-ui", "#8f8f9f");
   g.ids.forEach((id, i) => {
     const c = CARS[id];
     const x = g.x0 + (i % g.cols) * (g.cw + 16);
@@ -891,23 +898,46 @@ function drawShop() {
     cx.beginPath(); cx.roundRect(x, cy, g.cw, g.ch, 14); cx.stroke();
     const im = CAR_IMG[id];
     if (im && im.complete) {
-      const s = Math.min((g.cw - 24) / im.naturalWidth, (g.small ? 62 : 108) / im.naturalHeight);
+      const s = Math.min((g.cw - 24) / im.naturalWidth, (g.small ? 52 : 108) / im.naturalHeight);
       cx.drawImage(im, x + (g.cw - im.naturalWidth * s) / 2, cy + 8, im.naturalWidth * s, im.naturalHeight * s);
     }
+    // мобайл: имя компактно + настоящая кнопка-плитка на всю ширину карточки
+    if (g.small) {
+      cx.textAlign = "center"; cx.textBaseline = "top";
+      cx.fillStyle = "#ececf2"; cx.font = "700 12px system-ui";
+      cx.fillText(c.name.toUpperCase(), x + g.cw / 2, cy + 62);
+      const b = { x: x + 10, y: cy + g.ch - 34, w: g.cw - 20, h: 26 }, bc = b.x + b.w / 2, byy = b.y + b.h / 2;
+      let bg, br, col, lab;
+      if (active)      { bg = "rgba(245,197,66,.18)", br = "#f5c542", col = "#f5c542", lab = "ВЫБРАНА ★"; }
+      else if (owned)  { bg = "rgba(63,174,122,.15)", br = "#3fae7a", col = "#7fe6a0", lab = "ЗАЕХАТЬ (выбрать)"; }
+      else if (save.cash >= c.price) { bg = "#2f9e57", br = "#2f9e57", col = "#fff", lab = "КУПИТЬ  $" + c.price; }
+      else             { bg = "rgba(70,70,82,.55)", br = "#4a4a56", col = "#a0a0ae", lab = "КУПИТЬ $" + c.price + " · мало $"; }
+      cx.fillStyle = bg; rr(b.x, b.y, b.w, b.h, 8);
+      cx.strokeStyle = br; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(b.x, b.y, b.w, b.h, 8); cx.stroke();
+      cx.fillStyle = col; cx.font = "700 13px system-ui"; cx.textBaseline = "middle";
+      cx.fillText(lab, bc, byy);
+      return;
+    }
     cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillStyle = "#ececf2"; cx.font = "700 " + (g.small ? 12 : 16) + "px system-ui";
-    cx.fillText(c.name.toUpperCase(), x + g.cw / 2, cy + (g.small ? 70 : 124));
-    if (!g.small) cx.fillText("Скорость " + c.speed + " · Броня " + c.hp, x + g.cw / 2, cy + 148);
-    cx.font = "700 " + (g.small ? 12 : 16) + "px system-ui";
-    const btnY = cy + (g.small ? 92 : 188);
+    cx.fillStyle = "#ececf2"; cx.font = "700 16px system-ui";
+    cx.fillText(c.name.toUpperCase(), x + g.cw / 2, cy + 124);
+    cx.fillText("Скорость " + c.speed + " · Броня " + c.hp, x + g.cw / 2, cy + 148);
+    cx.font = "700 16px system-ui";
+    const btnY = cy + 188;
     if (active) { cx.fillStyle = "#f5c542"; cx.fillText("ВЫБРАНА", x + g.cw / 2, btnY); }
     else if (owned) { cx.fillStyle = "#3fae7a"; cx.fillText("В ГАРАЖЕ", x + g.cw / 2, btnY);
-      if (!g.small) cx.fillText("(клик — выбрать)", x + g.cw / 2, btnY + 18); }
+      cx.fillText("(клик — выбрать)", x + g.cw / 2, btnY + 18); }
     else if (save.cash >= c.price) { cx.fillStyle = "#7fe6a0"; cx.fillText("КУПИТЬ $" + c.price, x + g.cw / 2, btnY); }
     else { cx.fillStyle = "#8f8f9f"; cx.fillText("КУПИТЬ $" + c.price, x + g.cw / 2, btnY);
-      if (!g.small) cx.fillText("мало денег", x + g.cw / 2, btnY + 18); }
+      cx.fillText("мало денег", x + g.cw / 2, btnY + 18); }
   });
-  centered("ПРОБЕЛ — СЛЕДУЮЩИЙ УРОВЕНЬ", H - 60, "900 28px system-ui", "#f5c542");
+  // нижняя кнопка: на телефоне явная широкая плитка (тап мимо карточек тоже работает)
+  const bw = Math.min(W - 40, 420), bx = (W - bw) / 2, by = H - 74, bh = 50;
+  cx.fillStyle = "rgba(245,197,66,.14)"; rr(bx, by, bw, bh, 12);
+  cx.strokeStyle = "#f0a835"; cx.lineWidth = 2; cx.beginPath(); cx.roundRect(bx, by, bw, bh, 12); cx.stroke();
+  cx.fillStyle = "#f5c542"; cx.font = (TAP() ? "700 20px" : "700 24px") + " system-ui";
+  cx.textAlign = "center"; cx.textBaseline = "middle";
+  cx.fillText(TAP() ? "СЛЕДУЮЩИЙ УРОВЕНЬ ▶" : "ПРОБЕЛ — СЛЕДУЮЩИЙ УРОВЕНЬ", W / 2, by + bh / 2);
 }
 function shopClick(m) {
   if (state.phase !== "shop") return false;
