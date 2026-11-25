@@ -243,8 +243,9 @@ function pickTraffic(pool) {
   return list[0];
 }
 function laneX(i) {
-  if (i < 0 && state && state.club) return state.pocketX ?? (W - CFG.lanes * laneWcur) / 2 - laneWcur / 2;
-  if (i >= CFG.lanes && state && state.club) return state.pocketX ?? W - (W - CFG.lanes * laneWcur) / 2 + laneWcur / 2;
+  // карманы-обочины (-1 и CFG.lanes) всегда на центрах обочин: привязка к
+  // входу клуба давала прыжки («нажал вправо — а машина не едет/улетела
+  // через дорогу»), клуб теперь просто даёт VIP-бонус на своей обочине
   return (W - CFG.lanes * laneWcur) / 2 + laneWcur / 2 + i * laneWcur;
 }
 
@@ -463,8 +464,13 @@ function update() {
     const bump = c.stumble > 0 ? 1.5 : 1;
     let dy = state.speed * (c.spd ?? 1) * bump * (c.dir === -1 ? (state.dirBoost || 1) : 1);
     if (isMobile) dy *= 0.72;   // мобильное облегчение: весь поток (встречка и попутный) на ~28% медленнее
-    if (c.cop && wanted && state.lane > c.lane) c.lane += 0.02;
-    if (c.cop && wanted && state.lane < c.lane) c.lane -= 0.02;
+    // коп рулит к полосе игрока, но цель клампится в дорогу (0..CFG.lanes-1):
+    // раньше коп уезжал за обочину за укрытым игроком
+    if (c.cop && wanted) {
+      const chaseTo = Math.max(0, Math.min(CFG.lanes - 1, state.lane));
+      if (c.lane < chaseTo) c.lane = Math.min(chaseTo, c.lane + 0.02);
+      else if (c.lane > chaseTo) c.lane = Math.max(chaseTo, c.lane - 0.02);
+    }
     // чужая машина впеди (для копа и попутных) — притормозить, не проезжать насквозь
     const ahead = state.cars.find(o => o !== c && Math.abs(o.lane - c.lane) < 0.65
                   && o.y < c.y && c.y - o.y < (c.l + o.l) / 2 + 26 && c.spd > (o.spd ?? 1));
@@ -497,7 +503,10 @@ function update() {
     state.pocketX = pocketX;
     const pocketRows = state.club.y - state.club.h * 0.18 < state.y + 70
                     && state.club.y + state.club.h * 0.30 > state.y - 70;
-    if (!state.club.bonus && pocketRows && Math.abs(laneX(state.lane) - pocketX) < 120) {
+    // VIP-бонус: игрок на обочине той же стороны, где клуб (сами карманы
+    // больше не прыгают ко входу — см. laneX)
+    if (!state.club.bonus && pocketRows
+        && state.lane === (state.club.side === "left" ? -1 : CFG.lanes)) {
       state.club.bonus = true;
       save.cash += 25; storeSave(); Sfx.coin();
       state.pops.push({ x: pocketX, y: state.y - 70, txt: "VIP +$25", a: 1.3 });
