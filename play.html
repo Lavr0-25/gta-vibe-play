@@ -541,6 +541,20 @@ function update() {
       arrows.cd = DPAD.repeat;
       const nl = state.lane + (arrows.key === "r" ? 1 : -1);
       if (nl >= -1 && nl <= CFG.lanes) state.lane = nl;
+      state.laneTarget = null;   // ручное руление сильнее тап-цели
+    }
+  }
+  // тап-цель: едем к назначенной тапом полосе ПОЛОСА ЗА ПОЛОСОЙ (шаг 150 мс,
+  // по реальному времени — не зависит от FPS).
+  // Урок 25.11: раньше тап телепортировал через всю дорогу (до 6 полос,
+  // сквозь встречку) — приземление в занятую полосу давало отскок
+  // resolveCrash и машину «возило» в случайное место; теперь переход
+  // видимый, столкновения честные на пути
+  if (state.laneTarget != null) {
+    if (state.lane === state.laneTarget) state.laneTarget = null;
+    else if (performance.now() - (state.laneStepT || 0) >= 150) {
+      state.laneStepT = performance.now();
+      state.lane += Math.sign(state.laneTarget - state.lane);
     }
   }
   // столкновения: отскок, полоски в стороны, дым, звезда, здоровье
@@ -583,6 +597,7 @@ function resolveCrash(c) {
   const pl = Math.min(CFG.lanes - 1, Math.max(0, state.lane + dir));
   const cl = Math.min(CFG.lanes - 1, Math.max(0, c.lane - dir));
   state.lane = pl; c.lane = cl;
+  state.laneTarget = null;   // врезание сбрасывает тап-цель
   c.stumble = 1.1; if (c.cop) c.speedAdd = Math.max(2, c.speedAdd - 1);
   const dmg = (c.img === "cop" ? 22 : 14) + Math.random() * 8;
   state.hp = Math.max(0, state.hp - dmg);
@@ -1037,9 +1052,9 @@ addEventListener("keydown", e => {
     if (state.phase === "shop" && /^Digit[1-4]$/.test(e.code)) applyShopKey(+e.code.slice(5));
     return;
   }
-  // карманы-обочины доступны всегда (у клуба pocketX переопределяется в laneX)
-  if (e.code === "ArrowLeft" || e.code === "KeyA") state.lane = Math.max(-1, state.lane - 1);
-  if (e.code === "ArrowRight" || e.code === "KeyD") state.lane = Math.min(CFG.lanes, state.lane + 1);
+  // карманы-обочины доступны всегда (клавиши шагают по одной полосе)
+  if (e.code === "ArrowLeft" || e.code === "KeyA") { state.lane = Math.max(-1, state.lane - 1); state.laneTarget = null; }
+  if (e.code === "ArrowRight" || e.code === "KeyD") { state.lane = Math.min(CFG.lanes, state.lane + 1); state.laneTarget = null; }
   if (e.code === "ArrowUp" || e.code === "KeyW") state.yT -= H * 0.16;
   if (e.code === "ArrowDown" || e.code === "KeyS") state.yT += H * 0.16;
 });
@@ -1097,6 +1112,7 @@ cv.addEventListener("pointerdown", e => {
       if (hit === "l" || hit === "r") {     // шаг полосы сразу (кадр может не успеть)
         const nl = state.lane + (hit === "r" ? 1 : -1);
         if (nl >= -1 && nl <= CFG.lanes) state.lane = nl;
+        state.laneTarget = null;   // ручное руление сильнее тап-цели
       } else {                              // ▲▼: сразу полширины, удержание — дальше
         state.yT += (hit === "u" ? -1 : 1) * H * 0.09;
       }
@@ -1128,7 +1144,10 @@ cv.addEventListener("pointerup", e => {
     const d = Math.abs((e.clientX - rect.left) - laneX(l));
     if (d < bd) { bd = d; best = l; }
   }
-  state.lane = best;
+  // цель назначается, но машина ДОЕЗЖАЕТ к ней полоса за полосой
+  // (см. тап-цель в update) — не телепортируем через встречку
+  state.laneTarget = best;
+  state.laneStepT = 0;   // первый шаг сразу
 });
 addEventListener("pointercancel", e => { arrowsRelease(e); tapS = null; });
 function togglePause() {
